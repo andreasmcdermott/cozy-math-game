@@ -1,3 +1,5 @@
+import { CUP, CAPACITY, formatCups, cupLabel, parseCups } from './fractions.js';
+export { CUP, CAPACITY, formatCups, cupLabel, parseCups } from './fractions.js';
 export const SAVE_KEY = 'paws-potions-v1';
 export const INGREDIENTS = [
   { id: 'moonwater', name: 'Moonwater', color: '#79b6cf', art: 'moonwater', noun: 'moonwater' },
@@ -6,12 +8,12 @@ export const INGREDIENTS = [
   { id: 'mint', name: 'Garden mint', color: '#85ad86', art: 'mint', noun: 'mint tea' },
 ];
 export const RECIPES = [
-  { id: 'moonbeam', name: 'Moonbeam tonic', subtitle: 'A little bottled moonlight', color: '#ab8ec1', amounts: { moonwater: 2, moonberries: 1, honey: 1 }, reward: 12, customer: 'Hazel', request: 'My reading nook could use a little glow. One moonbeam tonic, please!', purpose: 'Makes a cozy reading light', art: 'rabbit' },
-  { id: 'garden', name: 'Garden giggles', subtitle: 'For very happy houseplants', color: '#87ab85', amounts: { moonwater: 2, mint: 2 }, reward: 10, customer: 'Fern', request: 'My little seedlings need some encouragement. Could you make garden giggles?', purpose: 'Helps sleepy seeds sprout', art: 'mushroom-frog' },
-  { id: 'dream', name: 'Sweet dreams', subtitle: 'Cloud-soft and sleepy', color: '#b29ac7', amounts: { moonwater: 2, moonberries: 2 }, reward: 10, customer: 'Pip', request: 'I have a big adventure tomorrow. A sweet dreams potion would be lovely.', purpose: 'Brings wonderfully silly dreams', art: 'lavender-dragon' },
-  { id: 'sunshine', name: 'Pocket sunshine', subtitle: 'A bright spot on a rainy day', color: '#dcaf67', amounts: { moonwater: 1, honey: 2, mint: 1 }, reward: 12, customer: 'Hazel', request: 'It is raining at our picnic! Can you bottle a little pocket sunshine?', purpose: 'Warms up rainy picnics', art: 'rabbit' },
-  { id: 'bravery', name: 'Brave little brew', subtitle: 'A warm sip of courage', color: '#a08bb8', amounts: { moonberries: 2, honey: 1, mint: 1 }, reward: 12, customer: 'Fern', request: 'I am singing at the forest fair. A brave little brew might help my butterflies!', purpose: 'Helps butterflies settle', art: 'mushroom-frog' },
-  { id: 'dew', name: 'Morning dew', subtitle: 'Fresh as a forest morning', color: '#7faeaf', amounts: { moonwater: 1, moonberries: 1, mint: 2 }, reward: 12, customer: 'Pip', request: 'My wings are still a little sleepy. Morning dew will get me ready to explore!', purpose: 'Wakes up sleepy wings', art: 'lavender-dragon' },
+  { id: 'moonbeam', name: 'Moonbeam tonic', subtitle: 'A little bottled moonlight', color: '#ab8ec1', amounts: { moonwater: 35, moonberries: 40, honey: 24 }, reward: 18, customer: 'Hazel', request: 'My reading nook could use a little glow. One moonbeam tonic, please!', purpose: 'Makes a cozy reading light', art: 'rabbit' },
+  { id: 'garden', name: 'Garden giggles', subtitle: 'For very happy houseplants', color: '#87ab85', amounts: { moonwater: 40, mint: 45 }, reward: 16, customer: 'Fern', request: 'My little seedlings need some encouragement. Could you make garden giggles?', purpose: 'Helps sleepy seeds sprout', art: 'mushroom-frog' },
+  { id: 'dream', name: 'Sweet dreams', subtitle: 'Cloud-soft and sleepy', color: '#b29ac7', amounts: { moonwater: 50, moonberries: 30 }, reward: 16, customer: 'Pip', request: 'I have a big adventure tomorrow. A sweet dreams potion would be lovely.', purpose: 'Brings wonderfully silly dreams', art: 'lavender-dragon' },
+  { id: 'sunshine', name: 'Pocket sunshine', subtitle: 'A bright spot on a rainy day', color: '#dcaf67', amounts: { moonwater: 36, honey: 45, mint: 20 }, reward: 18, customer: 'Hazel', request: 'It is raining at our picnic! Can you bottle a little pocket sunshine?', purpose: 'Warms up rainy picnics', art: 'rabbit' },
+  { id: 'bravery', name: 'Brave little brew', subtitle: 'A warm sip of courage', color: '#a08bb8', amounts: { moonberries: 45, honey: 30, mint: 24 }, reward: 18, customer: 'Fern', request: 'I am singing at the forest fair. A brave little brew might help my butterflies!', purpose: 'Helps butterflies settle', art: 'mushroom-frog' },
+  { id: 'dew', name: 'Morning dew', subtitle: 'Fresh as a forest morning', color: '#7faeaf', amounts: { moonwater: 45, moonberries: 24, mint: 50 }, reward: 18, customer: 'Pip', request: 'My wings are still a little sleepy. Morning dew will get me ready to explore!', purpose: 'Wakes up sleepy wings', art: 'lavender-dragon' },
 ];
 export const FAMILIARS = [
   { id: 'clover', name: 'Clover', species: 'Moss kitten', art: 'moss-kitten', cost: 0, description: 'A curious little companion with a very green paw.', perk: 'Loves moonbeam tonic', greeting: 'Every great potion starts with a little patience.', lines: ['Purr-fectly measured!', 'I believe in you. And snacks.', 'A little practice makes a lot of magic.', 'Shall we make something wonderful?'] },
@@ -22,20 +24,47 @@ export const DECORATIONS = [
   { id: 'plants', name: 'A little more green', description: 'A leafy friend for your shop window.', cost: 16, icon: 'leaf' },
   { id: 'garland', name: 'Moon & star garland', description: 'A string of little wonders above the counter.', cost: 28, icon: 'sparkles' },
 ];
+
 export const blankMixture = () => Object.fromEntries(INGREDIENTS.map(i => [i.id, 0]));
-export const newSave = () => ({ version: 1, coins: 0, completed: 0, owned: ['clover'], active: 'clover', decorations: [], settings: { difficulty: 'gentle', visualHints: true, sound: false } });
+export const emptyBrew = () => ({ lots: [], undoDepth: 0 });
+export const starterStock = () => Object.fromEntries(INGREDIENTS.map(i => [i.id, { 5: 2, 6: 2, 10: 2, 12: 2, 15: 2, 20: i.id === 'moonwater' ? 1 : 2 }]));
+export const newSave = () => ({ version: 2, coins: 0, completed: 0, owned: ['clover'], active: 'clover', decorations: [], settings: { difficulty: 'apprentice', visualHints: false, sound: false }, stock: starterStock(), brew: emptyBrew(), supplyCompleted: 0 });
+const validIngredient = id => INGREDIENTS.some(i => i.id === id);
+const validInteger = (n, max = 1_000_000) => Number.isSafeInteger(n) && n >= 0 && n <= max;
+const copyStock = stock => Object.fromEntries(INGREDIENTS.map(i => [i.id, { ...stock[i.id] }]));
+const addStock = (stock, ingredient, units, count = 1) => { stock[ingredient][units] = (stock[ingredient][units] || 0) + count; };
+export function mixtureFor(save) {
+  const mixture = blankMixture();
+  for (const lot of save.brew.lots) mixture[lot.ingredient] += lot.units;
+  return mixture;
+}
+export function stockTotal(save, ingredient) {
+  return Object.entries(save.stock[ingredient]).reduce((total, [units, count]) => total + Number(units) * count, 0);
+}
 export function sanitizeSave(value) {
   const base = newSave();
-  if (!value || typeof value !== 'object' || value.version !== 1) return base;
-  const integer = (n, max = 1_000_000) => Number.isSafeInteger(n) && n >= 0 && n <= max;
-  base.coins = integer(value.coins) ? value.coins : 0;
-  base.completed = integer(value.completed) ? value.completed : 0;
+  if (!value || typeof value !== 'object' || ![1, 2].includes(value.version)) return base;
+  base.coins = validInteger(value.coins) ? value.coins : 0;
+  base.completed = validInteger(value.completed) ? value.completed : 0;
   base.owned = ['clover', ...FAMILIARS.filter(p => p.id !== 'clover' && Array.isArray(value.owned) && value.owned.includes(p.id)).map(p => p.id)];
   base.active = base.owned.includes(value.active) ? value.active : 'clover';
   base.decorations = DECORATIONS.filter(d => Array.isArray(value.decorations) && value.decorations.includes(d.id)).map(d => d.id);
-  base.settings.difficulty = value.settings?.difficulty === 'growing' ? 'growing' : 'gentle';
-  base.settings.visualHints = value.settings?.visualHints !== false;
+  base.settings.difficulty = ['scholar', 'growing'].includes(value.settings?.difficulty) ? 'scholar' : 'apprentice';
+  base.settings.visualHints = value.version === 2 && value.settings?.visualHints === true;
   base.settings.sound = value.settings?.sound === true;
+  if (value.version === 1) return base;
+  base.supplyCompleted = validInteger(value.supplyCompleted) ? value.supplyCompleted : 0;
+  if (value.stock && typeof value.stock === 'object' && !Array.isArray(value.stock)) {
+    base.stock = Object.fromEntries(INGREDIENTS.map(i => [i.id, Object.fromEntries(Object.entries(value.stock[i.id] || {}).filter(([units, count]) => /^\d+$/.test(units) && validInteger(Number(units), CAPACITY) && Number(units) > 0 && validInteger(count) && count > 0))]));
+  }
+  if (Array.isArray(value.brew?.lots)) {
+    let total = 0;
+    base.brew.lots = value.brew.lots.slice(0, CAPACITY).filter(lot => {
+      if (!lot || !validIngredient(lot.ingredient) || !validInteger(lot.units, CAPACITY) || !lot.units || total + lot.units > CAPACITY) return false;
+      total += lot.units; return true;
+    }).map(lot => ({ ingredient: lot.ingredient, units: lot.units }));
+    base.brew.undoDepth = validInteger(value.brew.undoDepth, CAPACITY) ? Math.min(value.brew.undoDepth, base.brew.lots.length) : 0;
+  }
   return base;
 }
 export function loadSave(storage) {
@@ -45,32 +74,68 @@ export function loadSave(storage) {
 export function persistSave(storage, save) {
   try { storage.setItem(SAVE_KEY, JSON.stringify(save)); return true; } catch { return false; }
 }
-export function formatCups(units) {
-  if (!Number.isSafeInteger(units) || units < 0) throw new Error('Cup quantities must be nonnegative quarter units');
-  const whole = Math.floor(units / 4);
-  const fraction = ['', '¼', '½', '¾'][units % 4];
-  return `${whole || ''}${whole && fraction ? ' ' : ''}${fraction}` || '0';
-}
-export const cupLabel = units => `${formatCups(units)} ${units > 0 && units <= 4 ? 'cup' : 'cups'}`;
 export function currentOrder(save) {
   const recipe = RECIPES[save.completed % RECIPES.length];
-  const batch = save.settings.difficulty === 'growing' ? [1, 2, 2, 3][save.completed % 4] : 1;
-  return { id: `${save.completed}-${save.settings.difficulty}`, recipe, batch, reward: recipe.reward + (batch - 1) * 4, target: Object.fromEntries(INGREDIENTS.map(i => [i.id, (recipe.amounts[i.id] || 0) * batch])) };
+  const batch = save.settings.difficulty === 'scholar' ? [2, 3, 2, 3][save.completed % 4] : 1;
+  return { id: `${save.completed}-${save.settings.difficulty}`, recipe, batch, reward: recipe.reward + (batch - 1) * 6, target: Object.fromEntries(INGREDIENTS.map(i => [i.id, (recipe.amounts[i.id] || 0) * batch])) };
 }
 export function assessMixture(mixture, order) {
   const differences = INGREDIENTS.map(i => ({ ingredient: i, actual: mixture[i.id] || 0, needed: order.target[i.id] })).filter(i => i.actual !== i.needed);
   return { correct: differences.length === 0, differences };
 }
-export function pour(mixture, ingredient, units) {
-  if (!INGREDIENTS.some(i => i.id === ingredient) || ![1, 2, 4].includes(units)) return mixture;
-  const total = Object.values(mixture).reduce((a, b) => a + b, 0);
-  if (total + units > 24) return mixture;
-  return { ...mixture, [ingredient]: mixture[ingredient] + units };
+export function pour(save, ingredient, units) {
+  if (!validIngredient(ingredient) || !validInteger(units, CAPACITY) || !units || !(save.stock[ingredient][units] > 0)) return save;
+  const total = save.brew.lots.reduce((n, lot) => n + lot.units, 0);
+  if (total + units > CAPACITY) return save;
+  const stock = copyStock(save.stock); stock[ingredient][units]--;
+  if (!stock[ingredient][units]) delete stock[ingredient][units];
+  return { ...save, stock, brew: { lots: [...save.brew.lots, { ingredient, units }], undoDepth: save.brew.undoDepth + 1 } };
 }
-export function completeOrder(save, mixture, orderId) {
+export function undoPour(save) {
+  if (!save.brew.undoDepth) return save;
+  const lots = save.brew.lots.slice(); const lot = lots.pop(); const stock = copyStock(save.stock);
+  addStock(stock, lot.ingredient, lot.units);
+  return { ...save, stock, brew: { lots, undoDepth: save.brew.undoDepth - 1 } };
+}
+export function returnMixture(save) {
+  if (!save.brew.lots.length) return save;
+  const stock = copyStock(save.stock);
+  for (const lot of save.brew.lots) addStock(stock, lot.ingredient, lot.units);
+  return { ...save, stock, brew: emptyBrew() };
+}
+export function recoverPortion(save, ingredient, remove, remaining) {
+  if (!validIngredient(ingredient) || !validInteger(remove, CAPACITY) || !remove || !validInteger(remaining, CAPACITY)) return { save, correct: false, reason: 'invalid' };
+  const before = mixtureFor(save)[ingredient];
+  if (remove > before) return { save, correct: false, reason: 'too-much' };
+  if (before - remove !== remaining) return { save, correct: false, reason: 'subtraction' };
+  let toRemove = remove; const lots = save.brew.lots.map(lot => ({ ...lot }));
+  for (let n = lots.length - 1; n >= 0 && toRemove; n--) {
+    if (lots[n].ingredient !== ingredient) continue;
+    const taken = Math.min(lots[n].units, toRemove); lots[n].units -= taken; toRemove -= taken;
+  }
+  const stock = copyStock(save.stock); addStock(stock, ingredient, remove);
+  return { save: { ...save, stock, brew: { lots: lots.filter(lot => lot.units > 0), undoDepth: 0 } }, correct: true, before, remaining, removed: remove };
+}
+export function completeOrder(save, orderId) {
   const order = currentOrder(save);
-  if (order.id !== orderId || !assessMixture(mixture, order).correct) return { save, earned: 0 };
-  return { save: { ...save, coins: save.coins + order.reward, completed: save.completed + 1 }, earned: order.reward };
+  if (order.id !== orderId || !assessMixture(mixtureFor(save), order).correct) return { save, earned: 0 };
+  return { save: { ...save, coins: save.coins + order.reward, completed: save.completed + 1, brew: emptyBrew() }, earned: order.reward };
+}
+export function findCombination(portions, target) {
+  if (!validInteger(target, CAPACITY)) return null;
+  const paths = Array(target + 1).fill(null); paths[0] = [];
+  for (const [size, count] of Object.entries(portions)) {
+    const units = Number(size);
+    if (!validInteger(units, CAPACITY) || !units || !validInteger(count)) continue;
+    for (let copy = 0; copy < Math.min(count, Math.floor(target / units)); copy++) {
+      for (let sum = target; sum >= units; sum--) if (!paths[sum] && paths[sum - units]) paths[sum] = [...paths[sum - units], units];
+    }
+  }
+  return paths[target];
+}
+export function canFinishOrder(save) {
+  const mixture = mixtureFor(save), order = currentOrder(save);
+  return INGREDIENTS.every(i => mixture[i.id] + stockTotal(save, i.id) >= order.target[i.id]);
 }
 export function adopt(save, id) {
   const familiar = FAMILIARS.find(p => p.id === id);
@@ -81,4 +146,34 @@ export function decorate(save, id) {
   const decoration = DECORATIONS.find(d => d.id === id);
   if (!decoration || save.decorations.includes(id) || save.coins < decoration.cost) return save;
   return { ...save, coins: save.coins - decoration.cost, decorations: [...save.decorations, id] };
+}
+
+export const SUPPLY_SKILLS = ['arithmetic', 'algebra', 'geometry'];
+export function currentSupplyTask(save, skill = 'arithmetic') {
+  if (!SUPPLY_SKILLS.includes(skill)) skill = 'arithmetic';
+  const n = save.supplyCompleted, variant = n % 3;
+  const id = `${n}-${skill}`;
+  if (skill === 'arithmetic') {
+    const trays = 4 + n % 5, bottles = 6 + Math.floor(n / 3) % 5;
+    return variant === 1
+      ? { id, skill, title: 'Pack the delivery', story: 'Hazel is sorting a shipment for the forest shops.', prompt: `There are ${trays * bottles} ingredient bottles. Each crate holds ${bottles}. How many crates do we need?`, expression: `${trays * bottles} ÷ ${bottles} = ?`, answer: trays, unit: 'crates', hint: 'Think about the multiplication fact that makes the total number of bottles.' }
+      : { id, skill, title: 'Count the shipment', story: 'Hazel needs a hand checking the ingredient delivery.', prompt: `There are ${trays} trays with ${bottles} ingredient bottles on each tray. How many bottles are there altogether?`, expression: `${trays} × ${bottles} = ?`, answer: trays * bottles, unit: 'bottles', hint: 'Multiply the number of trays by the number of bottles on one tray. You can split a factor into easier parts.' };
+  }
+  if (skill === 'algebra') {
+    const x = 4 + n % 8, multiplier = 2 + n % 3, extra = 3 + n % 5;
+    return { id, skill, title: 'Restore a lost formula', story: 'Pip spilled moonwater on a page of the recipe book. One number is missing.', prompt: `The missing number is x. ${multiplier} identical ingredient bundles plus ${extra} loose bottles make ${multiplier * x + extra} bottles. What is x?`, expression: `${multiplier}x + ${extra} = ${multiplier * x + extra}`, answer: x, unit: 'bottles per bundle', hint: `First subtract the ${extra} loose bottles from the total. Then divide what is left into ${multiplier} equal bundles.` };
+  }
+  const width = 3 + n % 5, height = 2 + Math.floor(n / 2) % 4, depth = 2 + n % 2;
+  const dimensions = { width, height, depth: variant === 2 ? depth : 1 };
+  if (variant === 1) return { id, skill, dimensions, title: 'A fence for the herb garden', story: 'Fern is making a safe little garden for the mint.', prompt: `The rectangular herb bed is ${width} m long and ${height} m wide. How many meters of fencing go all the way around it?`, expression: `Perimeter of a ${width} m × ${height} m rectangle`, answer: 2 * (width + height), unit: 'meters', hint: 'Add all four sides. A rectangle has two long sides and two short sides.' };
+  if (variant === 2) return { id, skill, dimensions, title: 'Fill the enchanted planter', story: 'Fern needs soil for a new rectangular planter.', prompt: `The planter is ${width} m long, ${height} m wide, and ${depth} m deep. What volume of soil fills it?`, expression: `${width} m × ${height} m × ${depth} m`, answer: width * height * depth, unit: 'cubic meters', hint: 'Find the area of the base, then multiply by the number of one-meter layers.' };
+  return { id, skill, dimensions, title: 'Plan an herb bed', story: 'Fern is finding room to grow more potion ingredients.', prompt: `The rectangular garden is ${width} m long and ${height} m wide. What is its area?`, expression: `Area of a ${width} m × ${height} m rectangle`, answer: width * height, unit: 'square meters', hint: 'Count how many one-square-meter spaces fit in each row, then multiply by the number of rows.' };
+}
+export function completeSupplyTask(save, skill, taskId, answer) {
+  if (!SUPPLY_SKILLS.includes(skill)) return { save, correct: false };
+  const task = currentSupplyTask(save, skill);
+  if (task.id !== taskId || parseCups(answer, 10000) !== task.answer * CUP) return { save, correct: false };
+  const stock = copyStock(save.stock);
+  for (const ingredient of INGREDIENTS) for (const units of [5, 6, 10, 12, 15, 20]) addStock(stock, ingredient.id, units, 2);
+  return { save: { ...save, stock, supplyCompleted: save.supplyCompleted + 1 }, correct: true, portions: 48 };
 }

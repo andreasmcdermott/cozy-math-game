@@ -1,6 +1,6 @@
 # Paws & Potions
 
-A cozy math game about brewing potions and collecting magical familiars. Built for touch, including iPad Safari. The first version practices halves and quarters; the harder setting introduces recipe batches of two and three.
+A cozy fifth-grade math game about brewing potions and collecting magical familiars. Built for touch, including iPad Safari. Combine finite pre-measured fractions, subtract to recover ingredients, and solve arithmetic, algebra, and geometry supply errands.
 
 Read [DESIGN.md](DESIGN.md) for the goal, scope, learning rules, and handoff status. [ART.md](ART.md) records the generated artwork and exact prompts.
 
@@ -22,18 +22,19 @@ npm run build
 npm run preview
 ```
 
-Production preview runs at http://localhost:4180. Deploy the contents of dist/ to a static HTTPS host. The checked-in .openai/hosting.json identifies this project's private Sites deployment. The build generates a content-versioned service worker that precaches all local art, fonts, code, and application metadata.
+Production preview runs at http://localhost:4180. Deploy the contents of dist/ to a static HTTPS host. The checked-in .openai/hosting.json identifies this project's private Sites deployment. The build generates a content-versioned service worker that precaches all local art, fonts, code, and application metadata. Production module URLs share a source version so an older offline cache cannot mix incompatible rule and UI modules during an upgrade.
 
 ## Play
 
 1. Read the customer's order and the recipe for one bottle.
-2. Select a quarter-, half-, or whole-cup measure, then tap an ingredient to pour it.
-3. Match each quantity and brew. Undo, empty, and hints are free. Ingredients never run out.
-4. Spend earned coins on familiars or decorations. Tap a familiar for encouragement.
+2. Select an ingredient, then combine its finite pre-measured portions. Stock includes thirds, quarters, fifths, sixths, tenths, and twelfths. The opening recipe needs 7/12 cup of moonwater, such as 1/3 + 1/4.
+3. Recover lets you remove part of an ingredient after calculating the remaining amount. Undo returns the last eligible portion. The return button refunds the remaining individual portions.
+4. Brew an exact recipe to earn coins for familiars and decorations. Used stock stays depleted.
+5. Supply errands award crates of 48 portions. Choose delivery arithmetic, missing-number algebra, or garden area, perimeter, and volume. Restocking never costs coins.
 
-Learning settings are under the gear button. A gentle start makes one bottle at a time. A little more magic includes batches of two and three; multiply every ingredient by the bottle count. Visual fraction bars and optional synthesized sound can be toggled independently.
+Learning settings are under the gear button. Fraction alchemist makes one bottle from unlike-denominator portions. Master of batches requires two or three bottles; multiply every ingredient by the bottle count. Running totals are off by default and can be enabled for support. Optional synthesized sound is independent. Changing difficulty refunds an unfinished mixture before changing the order.
 
-Coins, completed orders, pets, decorations, and settings save in this browser on this device. Mixtures in progress are intentionally not saved. Reloading after a successful brew retains the earned reward and advances to the next order. Clearing browser data clears progress. If storage is blocked, play continues with a visible save warning.
+Coins, completed orders, pets, decorations, settings, pantry stock, errands, and the unfinished mixture save in this browser on this device. Each resource transfer saves stock and poured portions together. Reloading neither refunds nor duplicates a used portion. Successful brews retain the earned reward and advance the order. Original v1 saves migrate automatically, preserving pets, coins, orders, and decorations while adding starter pantry stock. Clearing browser data clears progress. If storage is blocked, play continues with a visible save warning.
 
 ## iPad and offline play
 
@@ -43,8 +44,9 @@ The hosted preview is private to the owner's account. Its platform sign-in can a
 
 ## Source map
 
-- src/game.js: recipe data, integer quarter-cup math, order rewards, purchases, and validated save schema.
-- src/main.js: native browser-module UI, interaction state, dialogs, and optional Web Audio chimes.
+- src/game.js: recipes, finite inventory and cauldron lots, recovery, supply tasks, rewards, purchases, and save migration.
+- src/fractions.js: exact arithmetic with 60 ticks per cup, simplified display, and typed fraction parsing.
+- src/main.js: native browser-module UI, ingredient selection, supply errands, subtraction dialogs, and optional Web Audio chimes.
 - src/style.css and src/fonts.css: responsive layout, local typography, and reduced-motion behavior.
 - public/art: nine optimized, generated WebP assets.
 - public/fonts: locally bundled DM Sans and Lora font faces, with license files.
@@ -52,4 +54,4 @@ The hosted preview is private to the owner's account. Its platform sign-in can a
 - scripts/build.mjs and scripts/build-sw.mjs: static build and offline-cache generation.
 - tests/game.test.js: math, reward, purchase, and save behavior tests.
 
-Use integer quarter-cup units for every quantity. Keep numerical labels in code. New recipes should remain solvable within the six-cup cauldron capacity. Do not award coins unless every ingredient matches, including ingredients absent from a recipe.
+Use exact integer ticks, 60 per cup, for every quantity. Keep numerical labels in code. The cauldron holds 12 cups. Inventory transfers must conserve quantity until a successful brew consumes it. New recipes must be solvable using the finite restocking system. Do not award coins unless every ingredient matches, including ingredients absent from a recipe. Recovery must check the subtraction answer before changing stock.

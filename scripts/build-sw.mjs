@@ -24,7 +24,7 @@ self.addEventListener('fetch', event => {
     event.respondWith(fetch(event.request).catch(() => caches.match('/index.html')));
     return;
   }
-  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
+  event.respondWith(caches.open(CACHE).then(cache => cache.match(event.request, { ignoreSearch: true })).then(cached => cached || fetch(event.request)));
 });
 `);
 console.log(`Offline cache ${version}: ${urls.length} local files.`);
