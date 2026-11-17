@@ -1,0 +1,20 @@
+const paths = {
+  bottle: '<path d="M9 3h6m-5 0v5l-5 9a3 3 0 0 0 3 4h8a3 3 0 0 0 3-4l-5-9V3M8 14h8"/><path d="m8 17 1 1m5-1h1"/>',
+  paw: '<ellipse cx="12" cy="16" rx="5" ry="4"/><ellipse cx="5" cy="10" rx="2" ry="3" transform="rotate(-25 5 10)"/><ellipse cx="10" cy="6" rx="2" ry="3"/><ellipse cx="16" cy="6" rx="2" ry="3"/><ellipse cx="20" cy="11" rx="2" ry="3" transform="rotate(25 20 11)"/>',
+  leaf: '<path d="M20 4C9 2 3 7 5 14s13 7 15-10ZM5 20l10-10M9 15l-1-5m1 5 5 1"/>',
+  book: '<path d="M12 5C7 2 3 4 3 4v15s5-2 9 1c4-3 9-1 9-1V4s-4-2-9 1Zm0 0v15M6 8l3 1m-3 3 3 1m6-4 3-1m-3 5 3-1"/>',
+  coin: '<circle cx="12" cy="12" r="9"/><path d="m12 6 2 4 4 2-4 2-2 4-2-4-4-2 4-2Z"/>',
+  sparkles: '<path d="m12 3 2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3ZM20 2v4m-2-2h4M3 19v4m-2-2h4"/>',
+  settings: '<path d="m9 3 1 3h4l1-3 3 2-1 3 2 3 3 1-1 4-3-1-3 2-1 3h-4l-1-3-3-2-3 1-1-4 3-1 2-3-1-3Z"/><circle cx="12" cy="12" r="3"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 3c-1 .5-1 1-1 2m0 3h.01"/>',
+  arrow: '<path d="M5 12h14m-5-5 5 5-5 5"/>',
+  undo: '<path d="M9 5 4 10l5 5M4 10h10a6 6 0 0 1 0 12"/>',
+  trash: '<path d="M4 7h16M9 7V3h6v4M6 7l1 14h10l1-14M10 11v6m4-6v6"/>',
+  close: '<path d="m6 6 12 12M6 18 18 6"/>',
+  check: '<path d="m5 12 4 4L19 6"/>',
+  lock: '<rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 5v2"/>',
+  heart: '<path d="M20 5c-3-3-7-1-8 2-1-3-5-5-8-2S2 13 12 21C22 13 23 8 20 5Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 1v2m0 18v2M1 12h2m18 0h2M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/>',
+  sound: '<path d="m11 4-6 5H2v6h3l6 5ZM15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14"/>',
+};
+export const icon = (name, cls = '') => `<svg class="icon ${cls}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name] || paths.sparkles}</svg>`;
