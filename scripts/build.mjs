@@ -22,5 +22,7 @@ const html = (await readFile(join(root, 'index.html'), 'utf8'))
   .replace('/src/main.js"', `/${appDirectory}/main.js"`)
   .replace('/src/style.css"', `/${appDirectory}/style.css"`);
 await writeFile(join(out, 'index.html'), html);
+const headers = (await readFile(join(root, 'cloudflare/headers.template'), 'utf8')).replaceAll('__APP_DIRECTORY__', appDirectory);
+await writeFile(join(out, '_headers'), headers);
 await import('./build-sw.mjs');
 console.log('Built Paws & Potions in dist/ with no runtime or build dependencies.');

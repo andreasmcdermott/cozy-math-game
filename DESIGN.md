@@ -60,7 +60,7 @@ The main brewing shop keeps its existing full illustration. The new corner backg
 - src/style.css owns responsive layout and animation. public/art and ART.md retain the existing generated art and provenance.
 - tests/game.test.js verifies generation, fraction rules, resource transfers, progression, and migration.
 - scripts/build.mjs, scripts/build-sw.mjs, and scripts/serve.mjs build/cache/serve the dependency-free static app. README.md contains commands.
-- .openai/hosting.json is the authoritative identity of the existing owner-private Site. Reuse it when publishing.
+- wrangler.jsonc and CLOUDFLARE.md define the new Cloudflare Pages deployment. The old .openai/hosting.json is historical context only; do not republish there as part of this move.
 
 The browser save key stays paws-potions-v1 for migration; the stored schema is version 4. Internal stock maps now describe only the current puzzle, not persistent inventory.
 
@@ -72,7 +72,7 @@ The browser save key stays paws-potions-v1 for migration; the stored schema is v
 - Village errands remain available as optional coin challenges with no stock reward.
 - Existing progress migrates, and invalid attempts recover without deleting achievements.
 - Exercise many generated orders in both modes with an independent subset solver, then verify complete playthroughs and touch layouts in a browser.
-- Build and update the existing private preview after verification.
+- Build and verify the portable Cloudflare Pages release. Publishing to Cloudflare is a separate step after the parent chooses the account/project.
 
 ## Handoff status
 
@@ -87,7 +87,36 @@ The combined puzzle, difficulty, economy, and room update is implemented. The or
 - Production upgrade preserved an existing 31-coin balance, eight completed potions, adopted Fern, and a bought plant while migrating to schema 4 and Standard. Stopping the production server and reloading retained the partial puzzle; the new cozy room, all ten catalog items, images, and local fonts loaded offline.
 - Production code now uses a content-versioned directory, rather than query-only module URLs. This avoids old service workers that ignored query strings and otherwise kept serving the old pantry interface after a refresh.
 
-Current publication status comes from the native Sites deployment result. Next useful work is a child playtest of the difficulty ramps, coin pacing, and room goals, followed by actual iPad Safari hardware checks.
+The older Sites deployment remains unchanged during the Cloudflare move. Next useful work after Cloudflare publication is a child playtest of the difficulty ramps, coin pacing, and room goals, followed by actual iPad Safari hardware checks.
+
+## Hosting migration
+
+The user requested preparing a move to Cloudflare Pages, correcting an initial mention of CloudFront. Prepare a static release, pinned Wrangler deployment commands, cache/security headers, and a progress backup/import path. Do not create AWS resources or republish to ChatGPT Sites. The game must work anonymously on the new Pages URL.
+
+Browser storage is tied to the exact origin. Moving from chatgpt.site to pages.dev, or later to a custom domain, does not move saves automatically. Export a game file on the old origin and explicitly restore it on the new origin. The old published version needs the manual export snippet in CLOUDFLARE.md because it predates the new backup controls. Keep the old site/access intact during preparation.
+
+Cloudflare treats _headers as deployment configuration, not a public asset, and redirects /index.html to /. The offline worker must precache the canonical root URL, exclude control files, and use the cached root as its navigation fallback. Hashed module paths remain immutable; HTML, worker, and mutable art/font URLs revalidate.
+
+Migration preparation is complete. wrangler.jsonc, pinned deployment helpers, Pages headers, CLOUDFLARE.md, and an upload-ready release/paws-potions-cloudflare.zip are ready. Actual Cloudflare project creation/deployment remains outside this preparation step.
+
+- npm run cloudflare:prepare passes 27 game/save tests and 3 deployment checks. Backup tests cover full state, legacy raw saves, unknown/corrupt files, and size limits.
+- The pinned Wrangler local Pages emulator parsed all 12 header rules. Root HTML had the configured security/cache headers; /index.html redirected to /; the service worker installed without requesting _headers.
+- Browser transfer checks rejected an invalid file without changing storage, previewed an imported 77-coin/two-familiar save, waited for explicit replacement, and retained the selected familiar, hidden furniture, and partial potion after reload.
+- Browser export produced a portable game-only file with the local calendar date in its filename. The narrow transfer dialog fit a 390-pixel touch viewport.
+- After stopping Wrangler, the actual Pages-emulated app reopened offline with the restored save, furnished room, all images, and local fonts. No external runtime requests or browser console errors occurred.
+- The ZIP contains 45 files with index.html and _headers at its root; integrity was checked. No login, cloud project creation, production deployment, DNS change, or old-site access change was performed.
+
+## Recovery interface
+
+Recovery now uses the shop's illustrated ingredient cards and fraction portion buttons instead of a dropdown and two plain text fields. Only ingredients in the cauldron are selectable. Common return amounts are limited to the selected ingredient's current quantity; Other accepts any supported exact fraction, mixed number, or decimal. Switching ingredients clears the previous selection and answer.
+
+The equation displays the starting quantity and selected return amount, leaving the remainder for the child to calculate. It never supplies the answer. Incorrect answers and excessive custom return amounts leave the save untouched. A correct subtraction returns exactly that portion to the tray, including when the remainder is zero. Game rules and save format are unchanged.
+
+- All 27 game/save tests and 3 Cloudflare deployment checks passed after the interface update.
+- Browser checks verified preset and custom fractions, mixed-number display, decimal entry, ingredient switching, incorrect subtraction, excessive returns, zero remainders, and exact transfers.
+- Keyboard Enter opens/submits recovery; Escape closes it. Focus returns to the recovery button. The final browser check reported no console errors or accessibility issues.
+- Checked 320×740, 390×844, 768×1024, and 1024×768 touch viewports. The dialog scrolls within the screen, has no horizontal overflow, and keeps enabled buttons at least 44 pixels tall. Inspected phone and tablet screenshots.
+- Rebuilt the Cloudflare upload archive with the new recovery interface. No deployment was performed.
 
 ## Limits and deferred work
 

@@ -6,4 +6,6 @@ Use [README.md](README.md) for run and verification commands. Keep recipe data a
 
 Keep all illustrated game assets local. Read the asset provenance document before replacing art. Render mathematical labels in code, not in generated pictures. Preserve large touch targets, keyboard play, reduced motion, and forgiving correction of mistakes.
 
+For hosting work, read CLOUDFLARE.md. Cloudflare Pages is the target; keep the old Sites manifest as historical context and do not automatically redeploy to Sites.
+
 After meaningful changes, update the handoff section in DESIGN.md with completed work, checks actually run, and outstanding limitations.

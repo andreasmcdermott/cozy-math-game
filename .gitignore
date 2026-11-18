@@ -5,3 +5,8 @@ playwright-report/
 test-results/
 art-source/
 .openai/site-workflow-state.json
+.wrangler/
+.dev.vars
+.env
+.env.*
+release/

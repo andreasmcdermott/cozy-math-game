@@ -7,6 +7,13 @@
     "dev": "node scripts/serve.mjs",
     "build": "node scripts/build.mjs",
     "preview": "node scripts/serve.mjs --production",
-    "test": "node --test tests/*.test.js"
+    "test": "node --test tests/*.test.js",
+    "test:cloudflare": "node --test checks/cloudflare.test.mjs",
+    "cloudflare:prepare": "npm test && npm run build && npm run test:cloudflare",
+    "cloudflare:preview": "node scripts/cloudflare.mjs preview",
+    "cloudflare:zip": "npm run cloudflare:prepare && python3 scripts/package-cloudflare.py",
+    "cloudflare:login": "node scripts/cloudflare.mjs login",
+    "cloudflare:create": "node scripts/cloudflare.mjs create",
+    "cloudflare:deploy": "npm run cloudflare:prepare && node scripts/cloudflare.mjs deploy"
   }
 }

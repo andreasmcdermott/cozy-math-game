@@ -5,11 +5,14 @@ import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../dist/', import.meta.url));
 const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => entry.isDirectory() ? walk(join(dir, entry.name)) : [join(dir, entry.name)]);
-const files = walk(root).filter(f => !f.endsWith('/sw.js'));
+const controls = new Set(['sw.js', '_headers', '_redirects']);
+const files = walk(root).filter(f => !controls.has(relative(root, f)));
 const hash = createHash('sha256');
 for (const file of files.sort()) hash.update(readFileSync(file));
 const version = `paws-potions-${hash.digest('hex').slice(0, 12)}`;
-const urls = files.map(f => `/${relative(root, f)}`);
+// Pages redirects /index.html to /. Cache the canonical URL directly, and do
+// not request deployment control files that Pages does not serve as assets.
+const urls = files.filter(f => relative(root, f) !== 'index.html').map(f => `/${relative(root, f)}`);
 writeFileSync(join(root, 'sw.js'), `const CACHE = ${JSON.stringify(version)};
 const FILES = ${JSON.stringify(['/', ...urls])};
 self.addEventListener('install', event => {
@@ -21,7 +24,7 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).catch(() => caches.match('/index.html')));
+    event.respondWith(fetch(event.request).catch(() => caches.open(CACHE).then(cache => cache.match('/'))));
     return;
   }
   event.respondWith(caches.open(CACHE).then(cache => cache.match(event.request, { ignoreSearch: true })).then(cached => cached || fetch(event.request)));

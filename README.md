@@ -22,7 +22,7 @@ npm run build
 npm run preview
 ```
 
-Production preview runs at http://localhost:4180. Deploy the contents of dist/ to a static HTTPS host. The checked-in .openai/hosting.json identifies this project's private Sites deployment. The build generates a content-versioned service worker that precaches all local art, fonts, code, and application metadata. Production module URLs share a source version so an older offline cache cannot mix incompatible rule and UI modules during an upgrade.
+Production preview runs at http://localhost:4180. Cloudflare Pages is the new hosting target; read [CLOUDFLARE.md](CLOUDFLARE.md) for the prepared deployment and progress-transfer steps. The old .openai/hosting.json is historical context and is not used for Cloudflare deployment. The build generates a content-versioned service worker that precaches all local art, fonts, code, and application metadata. Production module URLs share a source version so an older offline cache cannot mix incompatible rule and UI modules during an upgrade.
 
 ## Play
 
@@ -41,7 +41,7 @@ Use the level control or gear button to choose Easy, Standard, Challenge, or Aut
 - Challenge addition solutions require at least 4 portions per ingredient, with more decoys and batches of 2 or 3 bottles. Subtraction recovery is also available. Decoys cannot introduce a shorter shortcut.
 - Auto starts Easy, moves to Standard after 3 completed potions, then Challenge after 8. Errands do not advance the level. Manual levels remain fixed.
 
-Every mode has a guaranteed solution. Running totals are off by default, with optional totals, amount bars, and hints for support. Subtraction recovery remains an optional way to return part of an ingredient after calculating the remainder.
+Every mode has a guaranteed solution. Running totals are off by default, with optional totals, amount bars, and hints for support. To recover a portion, choose an illustrated ingredient card, tap the amount to return, and enter the remainder in the subtraction equation. Other lets you enter a custom fraction, mixed number, or exact decimal. Recovery is optional; incorrect answers leave your potion unchanged.
 
 Coins, pets, decorations, completed orders, settings, and your current puzzle attempt save in this browser. A reload keeps the same tray and poured portions. A reset never rerolls the puzzle. Changing difficulty starts that mode's puzzle with a fresh tray.
 
@@ -57,12 +57,24 @@ The cozy corner starts with bare walls, a wooden floor, a window, and your famil
 
 Open the HTTPS site in Safari, then use Share → Add to Home Screen. After the initial online load and successful offline-cache installation, the production build can reopen offline on that device. The help dialog reports when the cache is ready. Offline caching requires HTTPS or localhost; the Mac's plain HTTP Wi-Fi address supports online play but does not enable service workers on an iPad.
 
-The hosted preview is private to the owner's account. Its platform sign-in can affect first-time access and access on another device. No game account or cloud save is implemented. Actual iPad hardware testing remains to be done; development verification uses touch viewport emulation.
+The old ChatGPT Sites copy is private to the parent account. The prepared Cloudflare Pages deployment opens without a player account or ChatGPT sign-in. Actual Cloudflare publication is a separate step; no project is created by the preparation command. No cloud save is implemented. Actual iPad hardware testing remains to be done; development verification uses touch viewport emulation.
+
+## Cloudflare deployment preparation
+
+```sh
+npm run cloudflare:prepare
+npm run cloudflare:preview
+```
+
+The first command runs tests, builds dist/, and verifies Pages headers and offline caching. The second uses the pinned Wrangler local emulator on http://127.0.0.1:4181. Neither publishes or requires the child to have an account.
+
+When ready, the parent can run cloudflare:login, cloudflare:create once, and cloudflare:deploy. See [CLOUDFLARE.md](CLOUDFLARE.md) before deploying, including how to choose the project name and transfer progress from the old address. Settings → Back up or restore progress moves saved games between addresses/devices. The older published game needs the documented one-time export snippet.
 
 ## Source map
 
 - src/game.js: recipes, current puzzle attempts, cauldron lots, recovery, optional errands, rewards, purchases, and save migration.
 - src/puzzles.js: difficulty/reward configurations, deterministic solution-first generation, and decoys that preserve the required number of steps.
+- src/backups.js: validated portable save export/import and legacy raw-save support.
 - src/fractions.js: exact arithmetic with 60 ticks per cup, simplified display, and typed fraction parsing.
 - src/main.js: native browser-module UI, ingredient selection, supply errands, subtraction dialogs, and optional Web Audio chimes.
 - src/style.css and src/fonts.css: responsive layout, local typography, and reduced-motion behavior.
@@ -70,6 +82,8 @@ The hosted preview is private to the owner's account. Its platform sign-in can a
 - public/fonts: locally bundled DM Sans and Lora font faces, with license files.
 - scripts/serve.mjs: dependency-free local HTTP server.
 - scripts/build.mjs and scripts/build-sw.mjs: static build and offline-cache generation.
-- tests/game.test.js: math, reward, purchase, and save behavior tests.
+- tests/game.test.js and tests/backups.test.js: game rules, rewards, saves, and portable backups.
+- checks/cloudflare.test.mjs: deployable module graph, cache/header contracts, and canonical offline behavior.
+- wrangler.jsonc, cloudflare/headers.template, and scripts/cloudflare.mjs: Cloudflare Pages configuration and deployment commands.
 
 Use exact integer ticks, 60 per cup, for every quantity. Keep mathematical labels in code. The cauldron holds 12 cups. Transfers conserve quantities within an attempt; reset restores its generated tray and a successful brew creates the next puzzle. New recipes must have a multi-portion decomposition in the generator catalogue. Independently test many seeds and both difficulty modes. Reward only exact mixtures, including rejecting unrequested ingredients. Never make errands necessary for brewing.
