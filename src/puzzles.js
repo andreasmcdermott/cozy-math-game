@@ -53,7 +53,8 @@ function randomFor(seed) {
 export function generatePuzzleStock(order) {
   const level = order.level || LEVELS.standard;
   return Object.fromEntries(Object.entries(order.target).map(([ingredient, target]) => {
-    const random = randomFor(`${order.id}:${ingredient}`);
+    if (order.ingredientIds && !order.ingredientIds.includes(ingredient)) return [ingredient, {}];
+    const random = randomFor(`${order.seedId || order.id}:${order.seedIngredients?.[ingredient] || ingredient}`);
     const stock = {};
     if (target > 0) {
       const candidates = decompositions(target, level);

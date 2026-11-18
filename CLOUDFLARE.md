@@ -56,7 +56,7 @@ Saves belong to a browser **and the exact site origin**. A pages.dev URL cannot 
 2. On the new address, open the same panel and choose the downloaded file.
 3. Check the previewed coin, potion, and familiar counts, then choose Replace saved progress.
 
-The file includes the current puzzle, coins, pets, furniture ownership/display choices, difficulty, and settings. It contains game state, not browser cookies or account credentials. Invalid or unsupported files are rejected before changing the current game. Keep the file until the new save has survived a reload.
+The file includes the equipped and parked familiar puzzles, per-familiar recipe progress, coins, pets, every personal room’s furniture ownership/display choices, difficulty, and settings. It contains game state, not browser cookies or account credentials. Invalid or unsupported files are rejected before changing the current game. Keep the file until the new save has survived a reload.
 
 ### From the currently published older Sites version
 

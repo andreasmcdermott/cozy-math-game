@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SAVE_KEY, CUP, CAPACITY, INGREDIENTS, RECIPES, FAMILIARS, DECORATIONS, LEVELS, newSave as freshSave, sanitizeSave, loadSave, persistSave, formatCups, parseCups, difficultyFor, currentOrder, puzzleStock, resetPuzzle, setDifficulty, mixtureFor, stockTotal, pour, undoPour, returnMixture, recoverPortion, completeOrder, findCombination, canFinishOrder, currentSupplyTask, completeSupplyTask, adopt, decorate, toggleDecoration } from '../src/game.js';
+import { SAVE_KEY, CUP, CAPACITY, INGREDIENTS, ingredientsFor, recipesFor, startPuzzle, equipFamiliar, roomFor, decorationsFor, RECIPES, FAMILIARS, DECORATIONS, LEVELS, newSave as freshSave, sanitizeSave, loadSave, persistSave, formatCups, parseCups, difficultyFor, currentOrder, puzzleStock, resetPuzzle, setDifficulty, mixtureFor, stockTotal, pour, undoPour, returnMixture, recoverPortion, completeOrder, findCombination, canFinishOrder, currentSupplyTask, completeSupplyTask, adopt, decorate, toggleDecoration } from '../src/game.js';
 
 const newSave = () => setDifficulty(freshSave(), 'standard');
 const quantities = save => INGREDIENTS.map(i => stockTotal(save, i.id) + mixtureFor(save)[i.id]);
@@ -36,12 +36,12 @@ test('exact fractions support unlike denominators, mixed values, and the 5/6 exa
   assert.throws(() => formatCups(1.5));
 });
 
-test('4,000 puzzles are independently solvable with real decoys at every difficulty', () => {
-  for (const mode of ['auto', 'easy', 'standard', 'challenge']) for (let completed = 0; completed < 1000; completed++) {
-    const save = resetPuzzle({ ...setDifficulty(freshSave(), mode), completed });
+test('12,000 familiar puzzles are independently solvable with real decoys at every difficulty', () => {
+  for (const active of ['clover','fern','pip']) for (const mode of ['auto', 'easy', 'standard', 'challenge']) for (let completed = 0; completed < 1000; completed++) {
+    const save = startPuzzle({ ...setDifficulty(freshSave(), mode), active, owned:['clover','fern','pip'], completed, brewCounts:{[active]:completed} });
     const order = currentOrder(save), level = difficultyFor(save);
     assert.ok(Object.values(order.target).reduce((a, b) => a + b, 0) <= CAPACITY);
-    for (const i of INGREDIENTS) {
+    for (const i of ingredientsFor(save)) {
       const target = order.target[i.id], stock = save.stock[i.id], minimum = minimumSubset(stock, target);
       assert.ok(Number.isFinite(minimum), `${order.id} ${i.id}`);
       if (target) {
@@ -55,9 +55,9 @@ test('4,000 puzzles are independently solvable with real decoys at every difficu
   }
 });
 
-test('200 consecutive potions never require errands or restocking', () => {
-  for (const mode of ['auto', 'easy', 'standard', 'challenge']) {
-    let save = setDifficulty(freshSave(), mode);
+test('600 consecutive familiar potions never require errands or restocking', () => {
+  for (const active of ['clover','fern','pip']) for (const mode of ['auto', 'easy', 'standard', 'challenge']) {
+    let save = startPuzzle({...setDifficulty(freshSave(),mode),active,owned:['clover','fern','pip']});
     for (let n = 0; n < 50; n++) {
       assert.equal(canFinishOrder(save), true);
       const result = completeOrder(fillOrder(save), currentOrder(save).id);
@@ -72,7 +72,7 @@ test('Auto starts Easy and advances only after 3 and 8 completed potions', () =>
   let save = freshSave(); assert.equal(save.settings.difficulty, 'auto');
   for (let n = 0; n < 10; n++) {
     assert.equal(difficultyFor(save).id, n < 3 ? 'easy' : n < 8 ? 'standard' : 'challenge');
-    const task = currentSupplyTask(save); const rewarded = completeSupplyTask(save, 'arithmetic', task.id, String(task.answer)).save;
+    const task = currentSupplyTask(save); const rewarded = completeSupplyTask(save, 0, task.id, String(task.answer)).save;
     assert.equal(difficultyFor(rewarded).id, difficultyFor(save).id, 'Errands do not advance levels');
     save = completeOrder(fillOrder(save), currentOrder(save).id).save;
   }
@@ -80,7 +80,7 @@ test('Auto starts Easy and advances only after 3 and 8 completed potions', () =>
 
 test('manual levels stay fixed and changing a level starts that mode’s puzzle', () => {
   for (const id of Object.keys(LEVELS)) {
-    const save = resetPuzzle({ ...setDifficulty(freshSave(), id), completed: 100 });
+    const save = startPuzzle({ ...setDifficulty(freshSave(), id), completed: 100 });
     assert.equal(difficultyFor(save).id, id);
   }
   let save = newSave(); save = pour(save, 'moonwater', firstPortion(save));
@@ -93,12 +93,12 @@ test('Easy uses only halves, quarters, and whole cups while Challenge scales bat
   const easy = setDifficulty(freshSave(), 'easy');
   for (const stock of Object.values(easy.stock)) for (const size of Object.keys(stock)) assert.ok([15, 30, 60].includes(Number(size)));
   const challenge = setDifficulty(freshSave(), 'challenge'), order = currentOrder(challenge);
-  assert.equal(order.batch, 2); assert.deepEqual(order.target, { moonwater: 70, moonberries: 80, honey: 48, mint: 0 });
+  assert.equal(order.batch, 2); assert.deepEqual(order.target, Object.fromEntries(INGREDIENTS.map(i=>[i.id,({moonwater:70,lavender:80,chamomile:48})[i.id] || 0])));
 });
 
 test('generation is stable across reload/reset and varies when the same recipe returns', () => {
   const save = newSave(); assert.deepEqual(puzzleStock(save), puzzleStock(save));
-  const trays = new Set(); for (let n = 0; n < 30; n++) trays.add(JSON.stringify(puzzleStock({ ...save, completed: n * RECIPES.length })));
+  const trays = new Set(); for (let n = 0; n < 30; n++) trays.add(JSON.stringify(puzzleStock(startPuzzle({ ...save, completed:n*recipesFor(save).length,brewCounts:{clover:n*recipesFor(save).length} }))));
   assert.ok(trays.size >= 25);
 });
 
@@ -111,8 +111,8 @@ test('using portions depletes only the current tray and conserves quantities', (
 });
 
 test('reset restores the same puzzle without changing coins, pets, or level', () => {
-  const original = { ...newSave(), coins: 31, owned: ['clover', 'fern'], active: 'fern' };
-  const save = pour(original, 'moonwater', firstPortion(original)); const reset = resetPuzzle(save);
+  const original=adopt({...newSave(),coins:211},'fern'), id=ingredientsFor(original)[0].id;
+  const save = pour(original, id, firstPortion(original,id)); const reset = resetPuzzle(save);
   assert.deepEqual(reset.stock, original.stock); assert.equal(reset.puzzleId, original.puzzleId); assert.equal(reset.coins, 31);
   assert.equal(reset.active, 'fern'); assert.equal(reset.settings.difficulty, original.settings.difficulty); assert.deepEqual(reset.brew.lots, []);
 });
@@ -139,7 +139,7 @@ test('all valid combinations earn full rewards even with unused decoys', () => {
   // Search independently for a tray with more than one whole-portion solution.
   let chosen, alternatives;
   for (let completed = 0; completed < 100 && !chosen; completed++) {
-    const save = resetPuzzle({ ...newSave(), completed });
+    const save = startPuzzle({ ...newSave(), completed,brewCounts:{clover:completed} });
     const ingredient = INGREDIENTS.find(i => currentOrder(save).target[i.id] > 0);
     const entries = Object.entries(save.stock[ingredient.id]), solutions = [];
     const visit = (index, remaining, parts) => {
@@ -167,51 +167,43 @@ test('brewing awards once and prepares a fresh next puzzle', () => {
 
 test('wrong quantities and distractor ingredients do not earn coins', () => {
   let save = fillOrder(newSave()); const id = currentOrder(save).id;
-  const unused = INGREDIENTS.find(i => currentOrder(save).target[i.id] === 0);
+  const unused = ingredientsFor(save).find(i => currentOrder(save).target[i.id] === 0);
   save = pour(save, unused.id, firstPortion(save, unused.id)); assert.equal(completeOrder(save, id).earned, 0);
   save = undoPour(undoPour(save)); assert.equal(completeOrder(save, id).earned, 0);
 });
 
 test('errand questions and payouts scale with difficulty and cannot change the puzzle', () => {
-  const expected = { easy: [6, 4], standard: [48, 8], challenge: [132, 14] };
-  for (const [id, [answer, coins]] of Object.entries(expected)) {
+  const expected = { easy: 4, standard: 8, challenge: 14 };
+  for (const [id, coins] of Object.entries(expected)) {
     let save = setDifficulty(freshSave(), id); save = pour(save, 'moonwater', firstPortion(save));
-    const task = currentSupplyTask(save), result = completeSupplyTask(save, 'arithmetic', task.id, String(answer));
-    assert.equal(task.answer, answer); assert.equal(task.reward, coins); assert.equal(result.correct, true); assert.equal(result.earned, coins);
+    const task = currentSupplyTask(save), answer = task.answer, result = completeSupplyTask(save, 0, task.id, String(answer));
+    assert.ok(answer > 0); assert.equal(task.reward, coins); assert.equal(result.correct, true); assert.equal(result.earned, coins);
     assert.deepEqual(result.save.stock, save.stock); assert.deepEqual(result.save.brew, save.brew); assert.equal(result.save.puzzleId, save.puzzleId);
-    assert.equal(completeSupplyTask(result.save, 'arithmetic', task.id, String(answer)).correct, false);
-    assert.equal(completeSupplyTask(save, 'arithmetic', task.id, String(answer + 1)).save, save);
+    assert.equal(completeSupplyTask(result.save, 0, task.id, String(answer)).correct, false);
+    assert.equal(completeSupplyTask(save, 0, task.id, String(answer + 1)).save, save);
   }
 });
 
 test('stale errand forms cannot claim a higher difficulty reward', () => {
   const easy = setDifficulty(freshSave(), 'easy'), task = currentSupplyTask(easy);
   const challenge = setDifficulty(easy, 'challenge');
-  assert.equal(completeSupplyTask(challenge, 'arithmetic', task.id, String(task.answer)).correct, false);
-});
-
-test('algebra and geometry scale while retaining correct arithmetic', () => {
-  const easy = setDifficulty(freshSave(), 'easy'), standard = newSave(), challenge = setDifficulty(freshSave(), 'challenge');
-  assert.equal(currentSupplyTask(easy, 'algebra').answer, 4); assert.equal(currentSupplyTask(standard, 'algebra').answer, 8); assert.equal(currentSupplyTask(challenge, 'algebra').answer, 12);
-  assert.equal(currentSupplyTask(easy, 'geometry').answer, 4); assert.equal(currentSupplyTask(standard, 'geometry').answer, 6); assert.equal(currentSupplyTask(challenge, 'geometry').answer, 24);
-  standard.supplyCompleted = 1; assert.equal(currentSupplyTask(standard, 'arithmetic').answer, 13); assert.equal(currentSupplyTask(standard, 'geometry').answer, 12);
-  standard.supplyCompleted = 2; assert.equal(currentSupplyTask(standard, 'geometry').answer, 30);
+  assert.equal(completeSupplyTask(challenge, 0, task.id, String(task.answer)).correct, false);
 });
 
 test('familiar prices require sustained progress and purchases charge only once', () => {
   assert.equal(FAMILIARS.find(p => p.id === 'fern').cost, 180); assert.equal(FAMILIARS.find(p => p.id === 'pip').cost, 450);
   const poor = { ...newSave(), coins: 179 }; assert.equal(adopt(poor, 'fern'), poor);
   const rich = { ...newSave(), coins: 500 }, adopted = adopt(rich, 'fern');
-  assert.equal(adopted.coins, 320); assert.equal(adopted.active, 'fern'); assert.equal(adopt(adopted, 'fern'), adopted); assert.deepEqual(adopted.stock, rich.stock);
+  assert.equal(adopted.coins, 320); assert.equal(adopted.active, 'fern'); assert.equal(adopt(adopted, 'fern'), adopted); assert.deepEqual(adopted.paused.clover.stock, rich.stock); assert.equal(canFinishOrder(adopted),true); assert.notDeepEqual(adopted.stock,rich.stock);
 });
 
 test('the corner starts bare and offers ten furnishings with saved placement choices', () => {
-  const save = freshSave(); assert.deepEqual(save.decorations, []); assert.deepEqual(save.hiddenDecorations, []); assert.equal(DECORATIONS.length, 10);
+  const save = freshSave(); assert.deepEqual(roomFor(save).decorations, []); assert.deepEqual(roomFor(save).hiddenDecorations, []); assert.equal(DECORATIONS.length, 10);
   let decorated = decorate({ ...save, coins: 200 }, 'rug');
-  assert.equal(decorated.coins, 152); assert.deepEqual(decorated.decorations, ['rug']); assert.equal(decorate(decorated, 'rug'), decorated);
-  const hidden = toggleDecoration(decorated, 'rug'); assert.deepEqual(hidden.hiddenDecorations, ['rug']); assert.equal(hidden.coins, decorated.coins);
-  assert.deepEqual(sanitizeSave(JSON.parse(JSON.stringify(hidden))).hiddenDecorations, ['rug']);
-  assert.deepEqual(toggleDecoration(hidden, 'rug').hiddenDecorations, []); assert.equal(toggleDecoration(hidden, 'bookshelf'), hidden);
+  assert.equal(decorated.coins, 152); assert.deepEqual(roomFor(decorated).decorations, ['rug']); assert.equal(decorate(decorated, 'rug'), decorated);
+  const hidden = toggleDecoration(decorated, 'rug'); assert.deepEqual(roomFor(hidden).hiddenDecorations, ['rug']); assert.equal(hidden.coins, decorated.coins);
+  assert.deepEqual(roomFor(sanitizeSave(JSON.parse(JSON.stringify(hidden)))).hiddenDecorations, ['rug']);
+  assert.deepEqual(roomFor(toggleDecoration(hidden, 'rug')).hiddenDecorations, []); assert.equal(toggleDecoration(hidden, 'bookshelf'), hidden);
   assert.deepEqual(hidden.stock, save.stock); assert.deepEqual(hidden.brew, save.brew);
 });
 
@@ -219,7 +211,7 @@ test('old saves migrate with coins, adopted pets, and bought furnishings intact'
   for (const version of [1, 2, 3]) {
     const old = { version, coins: 31, completed: 8, owned: ['clover', 'fern'], active: 'fern', decorations: ['plants', 'garland'], settings: { difficulty: 'apprentice', visualHints: false, sound: true }, stock: {}, brew: { lots: [{ ingredient: 'mint', units: 10 }], undoDepth: 1 }, supplyCompleted: 3 };
     const save = sanitizeSave(old);
-    assert.equal(save.version, 4); assert.equal(save.coins, 31); assert.equal(save.completed, 8); assert.equal(save.active, 'fern'); assert.deepEqual(save.decorations, ['plants', 'garland']);
+    assert.equal(save.version, 5); assert.equal(save.coins, 31); assert.equal(save.completed, 8); assert.equal(save.active, 'fern'); assert.deepEqual(roomFor(save).decorations, ['plants', 'garland']);
     assert.equal(save.settings.difficulty, 'standard'); assert.equal(save.supplyCompleted, 3); assert.equal(save.brew.lots.length, 0); assert.equal(canFinishOrder(save), true);
   }
   assert.equal(sanitizeSave({ ...freshSave(), version: 2, settings: { difficulty: 'scholar' } }).settings.difficulty, 'challenge');

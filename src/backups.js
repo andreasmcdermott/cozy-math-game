@@ -17,7 +17,7 @@ export function parseBackup(text) {
     if (parsed.format !== BACKUP_FORMAT || parsed.formatVersion !== 1) throw new Error('This save format is not supported by this version of the game.');
     game = parsed.game;
   }
-  if (!game || typeof game !== 'object' || ![1, 2, 3, 4].includes(game.version)) throw new Error('This save version is not supported by this version of the game.');
+  if (!game || typeof game !== 'object' || ![1, 2, 3, 4, 5].includes(game.version)) throw new Error('This save version is not supported by this version of the game.');
   for (const key of ['coins', 'completed']) {
     if (!Number.isSafeInteger(game[key]) || game[key] < 0 || game[key] > 1_000_000) throw new Error('The progress amounts in this file are invalid.');
   }
