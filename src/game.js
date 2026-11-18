@@ -1,3 +1,5 @@
+import { generatePuzzleStock, LEVELS, AUTO_THRESHOLDS } from './puzzles.js';
+export { LEVELS, AUTO_THRESHOLDS } from './puzzles.js';
 import { CUP, CAPACITY, formatCups, cupLabel, parseCups } from './fractions.js';
 export { CUP, CAPACITY, formatCups, cupLabel, parseCups } from './fractions.js';
 export const SAVE_KEY = 'paws-potions-v1';
@@ -17,18 +19,33 @@ export const RECIPES = [
 ];
 export const FAMILIARS = [
   { id: 'clover', name: 'Clover', species: 'Moss kitten', art: 'moss-kitten', cost: 0, description: 'A curious little companion with a very green paw.', perk: 'Loves moonbeam tonic', greeting: 'Every great potion starts with a little patience.', lines: ['Purr-fectly measured!', 'I believe in you. And snacks.', 'A little practice makes a lot of magic.', 'Shall we make something wonderful?'] },
-  { id: 'fern', name: 'Fern', species: 'Mushroom frog', art: 'mushroom-frog', cost: 24, description: 'Small, bouncy, and always ready to cheer you on.', perk: 'Loves garden giggles', greeting: 'One scoop at a time. You have got this!', lines: ['That deserves a happy hop!', 'You make this shop feel like home.', 'My mushroom hat says you can do it.', 'The garden is rooting for you!'] },
-  { id: 'pip', name: 'Pip', species: 'Pocket dragon', art: 'lavender-dragon', cost: 48, description: 'A tiny dragon with a warm heart and sleepy wings.', perk: 'Loves sweet dreams', greeting: 'Let us cook up a little magic together.', lines: ['A tiny roar for a wonderful alchemist!', 'Your potions give me happy wings.', 'I could warm the kettle. Just a little.', 'Another cozy adventure?'] },
+  { id: 'fern', name: 'Fern', species: 'Mushroom frog', art: 'mushroom-frog', cost: 180, description: 'Small, bouncy, and always ready to cheer you on.', perk: 'Loves garden giggles', greeting: 'One scoop at a time. You have got this!', lines: ['That deserves a happy hop!', 'You make this shop feel like home.', 'My mushroom hat says you can do it.', 'The garden is rooting for you!'] },
+  { id: 'pip', name: 'Pip', species: 'Pocket dragon', art: 'lavender-dragon', cost: 450, description: 'A tiny dragon with a warm heart and sleepy wings.', perk: 'Loves sweet dreams', greeting: 'Let us cook up a little magic together.', lines: ['A tiny roar for a wonderful alchemist!', 'Your potions give me happy wings.', 'I could warm the kettle. Just a little.', 'Another cozy adventure?'] },
 ];
 export const DECORATIONS = [
-  { id: 'plants', name: 'A little more green', description: 'A leafy friend for your shop window.', cost: 16, icon: 'leaf' },
-  { id: 'garland', name: 'Moon & star garland', description: 'A string of little wonders above the counter.', cost: 28, icon: 'sparkles' },
+  { id: 'herbs', name: 'A bundle of green', description: 'Fresh garden herbs, ready to hang and dry.', cost: 16, art: 'decor-herbs' },
+  { id: 'plants', name: 'Window fern', description: 'A leafy little friend to catch the sunlight.', cost: 24, art: 'decor-plant' },
+  { id: 'lantern', name: 'Firefly lantern', description: 'A warm glow for long storybook evenings.', cost: 36, art: 'decor-lantern' },
+  { id: 'garland', name: 'Moon & star garland', description: 'Little wonders strung across the room.', cost: 40, icon: 'sparkles' },
+  { id: 'rug', name: 'Moonberry rug', description: 'A soft woven circle for tiny paws.', cost: 48, art: 'decor-rug' },
+  { id: 'painting', name: 'A moonlit view', description: 'A little landscape to dream about.', cost: 60, art: 'decor-painting' },
+  { id: 'bed', name: 'Cloud-soft pet bed', description: 'The best place for an afternoon nap.', cost: 72, art: 'decor-bed' },
+  { id: 'shelf', name: 'Potion shelf', description: 'A small shelf for your favorite brews.', cost: 84, art: 'decor-potion-shelf' },
+  { id: 'tea', name: 'Tea for two', description: 'A little table for you and your familiar.', cost: 100, art: 'decor-tea-table' },
+  { id: 'bookshelf', name: 'Storybook shelves', description: 'A home for books and future adventures.', cost: 120, art: 'decor-bookshelf' },
 ];
 
 export const blankMixture = () => Object.fromEntries(INGREDIENTS.map(i => [i.id, 0]));
 export const emptyBrew = () => ({ lots: [], undoDepth: 0 });
-export const starterStock = () => Object.fromEntries(INGREDIENTS.map(i => [i.id, { 5: 2, 6: 2, 10: 2, 12: 2, 15: 2, 20: i.id === 'moonwater' ? 1 : 2 }]));
-export const newSave = () => ({ version: 2, coins: 0, completed: 0, owned: ['clover'], active: 'clover', decorations: [], settings: { difficulty: 'apprentice', visualHints: false, sound: false }, stock: starterStock(), brew: emptyBrew(), supplyCompleted: 0 });
+export const newSave = () => resetPuzzle({ version: 4, coins: 0, completed: 0, owned: ['clover'], active: 'clover', decorations: [], hiddenDecorations: [], settings: { difficulty: 'auto', visualHints: false, sound: false }, stock: {}, brew: emptyBrew(), supplyCompleted: 0 });
+export const puzzleStock = save => generatePuzzleStock(currentOrder(save));
+export function resetPuzzle(save) {
+  return { ...save, puzzleId: currentOrder(save).id, stock: puzzleStock(save), brew: emptyBrew() };
+}
+export function setDifficulty(save, difficulty) {
+  if (!['auto', 'easy', 'standard', 'challenge'].includes(difficulty) || save.settings.difficulty === difficulty) return save;
+  return resetPuzzle({ ...save, settings: { ...save.settings, difficulty } });
+}
 const validIngredient = id => INGREDIENTS.some(i => i.id === id);
 const validInteger = (n, max = 1_000_000) => Number.isSafeInteger(n) && n >= 0 && n <= max;
 const copyStock = stock => Object.fromEntries(INGREDIENTS.map(i => [i.id, { ...stock[i.id] }]));
@@ -43,17 +60,19 @@ export function stockTotal(save, ingredient) {
 }
 export function sanitizeSave(value) {
   const base = newSave();
-  if (!value || typeof value !== 'object' || ![1, 2].includes(value.version)) return base;
+  if (!value || typeof value !== 'object' || ![1, 2, 3, 4].includes(value.version)) return base;
   base.coins = validInteger(value.coins) ? value.coins : 0;
   base.completed = validInteger(value.completed) ? value.completed : 0;
   base.owned = ['clover', ...FAMILIARS.filter(p => p.id !== 'clover' && Array.isArray(value.owned) && value.owned.includes(p.id)).map(p => p.id)];
   base.active = base.owned.includes(value.active) ? value.active : 'clover';
   base.decorations = DECORATIONS.filter(d => Array.isArray(value.decorations) && value.decorations.includes(d.id)).map(d => d.id);
-  base.settings.difficulty = ['scholar', 'growing'].includes(value.settings?.difficulty) ? 'scholar' : 'apprentice';
-  base.settings.visualHints = value.version === 2 && value.settings?.visualHints === true;
+  base.hiddenDecorations = base.decorations.filter(id => Array.isArray(value.hiddenDecorations) && value.hiddenDecorations.includes(id));
+  base.settings.difficulty = ['auto', 'easy', 'standard', 'challenge'].includes(value.settings?.difficulty) ? value.settings.difficulty : ['scholar', 'growing'].includes(value.settings?.difficulty) ? 'challenge' : 'standard';
+  base.settings.visualHints = value.version >= 2 && value.settings?.visualHints === true;
   base.settings.sound = value.settings?.sound === true;
-  if (value.version === 1) return base;
   base.supplyCompleted = validInteger(value.supplyCompleted) ? value.supplyCompleted : 0;
+  if (value.version < 4) return resetPuzzle(base);
+  base.puzzleId = value.puzzleId;
   if (value.stock && typeof value.stock === 'object' && !Array.isArray(value.stock)) {
     base.stock = Object.fromEntries(INGREDIENTS.map(i => [i.id, Object.fromEntries(Object.entries(value.stock[i.id] || {}).filter(([units, count]) => /^\d+$/.test(units) && validInteger(Number(units), CAPACITY) && Number(units) > 0 && validInteger(count) && count > 0))]));
   }
@@ -65,7 +84,13 @@ export function sanitizeSave(value) {
     }).map(lot => ({ ingredient: lot.ingredient, units: lot.units }));
     base.brew.undoDepth = validInteger(value.brew.undoDepth, CAPACITY) ? Math.min(value.brew.undoDepth, base.brew.lots.length) : 0;
   }
-  return base;
+  const generated = puzzleStock(base);
+  const mixture = mixtureFor(base);
+  const validAttempt = base.puzzleId === currentOrder(base).id && INGREDIENTS.every(i => {
+    const expected = Object.entries(generated[i.id]).reduce((sum, [units, count]) => sum + Number(units) * count, 0);
+    return stockTotal(base, i.id) + mixture[i.id] === expected;
+  });
+  return validAttempt ? base : resetPuzzle(base);
 }
 export function loadSave(storage) {
   try { return { save: sanitizeSave(JSON.parse(storage.getItem(SAVE_KEY))), available: true }; }
@@ -74,10 +99,18 @@ export function loadSave(storage) {
 export function persistSave(storage, save) {
   try { storage.setItem(SAVE_KEY, JSON.stringify(save)); return true; } catch { return false; }
 }
+export function difficultyFor(save) {
+  const selected = save.settings.difficulty;
+  const id = selected === 'auto' ? (save.completed < AUTO_THRESHOLDS.standard ? 'easy' : save.completed < AUTO_THRESHOLDS.challenge ? 'standard' : 'challenge') : selected;
+  return LEVELS[id] || LEVELS.standard;
+}
 export function currentOrder(save) {
-  const recipe = RECIPES[save.completed % RECIPES.length];
-  const batch = save.settings.difficulty === 'scholar' ? [2, 3, 2, 3][save.completed % 4] : 1;
-  return { id: `${save.completed}-${save.settings.difficulty}`, recipe, batch, reward: recipe.reward + (batch - 1) * 6, target: Object.fromEntries(INGREDIENTS.map(i => [i.id, (recipe.amounts[i.id] || 0) * batch])) };
+  const baseRecipe = RECIPES[save.completed % RECIPES.length];
+  const level = difficultyFor(save);
+  const amounts = level.id === 'easy' ? Object.fromEntries(Object.keys(baseRecipe.amounts).map((ingredient, index) => [ingredient, [30, 45, 60][(save.completed + index) % 3]])) : baseRecipe.amounts;
+  const recipe = { ...baseRecipe, amounts };
+  const batch = level.id === 'challenge' ? [2, 3, 2, 3][save.completed % 4] : 1;
+  return { id: `p4-${save.completed}-${save.settings.difficulty}`, recipe, level, batch, reward: level.potionCoins + (Object.keys(amounts).length - 2) * 2 + (batch - 1) * 4, target: Object.fromEntries(INGREDIENTS.map(i => [i.id, (recipe.amounts[i.id] || 0) * batch])) };
 }
 export function assessMixture(mixture, order) {
   const differences = INGREDIENTS.map(i => ({ ingredient: i, actual: mixture[i.id] || 0, needed: order.target[i.id] })).filter(i => i.actual !== i.needed);
@@ -119,7 +152,7 @@ export function recoverPortion(save, ingredient, remove, remaining) {
 export function completeOrder(save, orderId) {
   const order = currentOrder(save);
   if (order.id !== orderId || !assessMixture(mixtureFor(save), order).correct) return { save, earned: 0 };
-  return { save: { ...save, coins: save.coins + order.reward, completed: save.completed + 1, brew: emptyBrew() }, earned: order.reward };
+  return { save: resetPuzzle({ ...save, coins: save.coins + order.reward, completed: save.completed + 1 }), earned: order.reward };
 }
 export function findCombination(portions, target) {
   if (!validInteger(target, CAPACITY)) return null;
@@ -135,7 +168,7 @@ export function findCombination(portions, target) {
 }
 export function canFinishOrder(save) {
   const mixture = mixtureFor(save), order = currentOrder(save);
-  return INGREDIENTS.every(i => mixture[i.id] + stockTotal(save, i.id) >= order.target[i.id]);
+  return INGREDIENTS.every(i => mixture[i.id] <= order.target[i.id] && findCombination(save.stock[i.id], order.target[i.id] - mixture[i.id]) !== null);
 }
 export function adopt(save, id) {
   const familiar = FAMILIARS.find(p => p.id === id);
@@ -148,32 +181,50 @@ export function decorate(save, id) {
   return { ...save, coins: save.coins - decoration.cost, decorations: [...save.decorations, id] };
 }
 
+export function toggleDecoration(save, id) {
+  if (!save.decorations.includes(id)) return save;
+  const hidden = save.hiddenDecorations || [];
+  return { ...save, hiddenDecorations: hidden.includes(id) ? hidden.filter(item => item !== id) : [...hidden, id] };
+}
+
 export const SUPPLY_SKILLS = ['arithmetic', 'algebra', 'geometry'];
 export function currentSupplyTask(save, skill = 'arithmetic') {
   if (!SUPPLY_SKILLS.includes(skill)) skill = 'arithmetic';
-  const n = save.supplyCompleted, variant = n % 3;
-  const id = `${n}-${skill}`;
+  const n = save.supplyCompleted, variant = n % 3, level = difficultyFor(save);
+  const context = { id: `${n}-${skill}-${level.id}`, skill, level, reward: level.errandCoins };
   if (skill === 'arithmetic') {
-    const trays = 4 + n % 5, bottles = 6 + Math.floor(n / 3) % 5;
-    return variant === 1
-      ? { id, skill, title: 'Pack the delivery', story: 'Hazel is sorting a shipment for the forest shops.', prompt: `There are ${trays * bottles} ingredient bottles. Each crate holds ${bottles}. How many crates do we need?`, expression: `${trays * bottles} ÷ ${bottles} = ?`, answer: trays, unit: 'crates', hint: 'Think about the multiplication fact that makes the total number of bottles.' }
-      : { id, skill, title: 'Count the shipment', story: 'Hazel needs a hand checking the ingredient delivery.', prompt: `There are ${trays} trays with ${bottles} ingredient bottles on each tray. How many bottles are there altogether?`, expression: `${trays} × ${bottles} = ?`, answer: trays * bottles, unit: 'bottles', hint: 'Multiply the number of trays by the number of bottles on one tray. You can split a factor into easier parts.' };
+    const trays = level.id === 'easy' ? 2 + n % 4 : 12 + n % (level.id === 'challenge' ? 12 : 9);
+    const bottles = level.id === 'easy' ? 3 + Math.floor(n / 3) % 4 : level.id === 'challenge' ? 11 + Math.floor(n / 3) % 9 : 4 + Math.floor(n / 3) % 6;
+    if (variant === 1) return { ...context, title: 'Pack the delivery', story: 'Hazel is sorting a shipment for the forest shops.', prompt: `There are ${trays * bottles} ingredient bottles. Each crate holds ${bottles}. How many crates do we need?`, expression: `${trays * bottles} ÷ ${bottles} = ?`, answer: trays, unit: 'crates', hint: 'Think about the multiplication fact that makes the total number of bottles.' };
+    const reserved = level.id === 'challenge' && variant === 2 ? 7 + n % 8 : 0;
+    return { ...context, title: 'Count the shipment', story: 'Hazel needs a hand checking the ingredient delivery.', prompt: `There are ${trays} trays with ${bottles} ingredient bottles on each tray.${reserved ? ` We reserve ${reserved} bottles for the village healer. How many are left for the other shops?` : ' How many bottles are there altogether?'}`, expression: `${trays} × ${bottles}${reserved ? ` − ${reserved}` : ''} = ?`, answer: trays * bottles - reserved, unit: 'bottles', hint: reserved ? 'Multiply the trays by the bottles on each tray. Then subtract the bottles reserved for the healer.' : 'Multiply the trays by the bottles on one tray. You can split a factor into easier parts.' };
   }
   if (skill === 'algebra') {
-    const x = 4 + n % 8, multiplier = 2 + n % 3, extra = 3 + n % 5;
-    return { id, skill, title: 'Restore a lost formula', story: 'Pip spilled moonwater on a page of the recipe book. One number is missing.', prompt: `The missing number is x. ${multiplier} identical ingredient bundles plus ${extra} loose bottles make ${multiplier * x + extra} bottles. What is x?`, expression: `${multiplier}x + ${extra} = ${multiplier * x + extra}`, answer: x, unit: 'bottles per bundle', hint: `First subtract the ${extra} loose bottles from the total. Then divide what is left into ${multiplier} equal bundles.` };
+    const extra = 3 + n % 5;
+    if (level.id === 'easy') {
+      const x = 4 + n % 8;
+      return { ...context, title: 'Restore a lost formula', story: 'Pip spilled moonwater on a page. One number is missing.', prompt: `A bundle has x bottles. Add ${extra} loose bottles and there are ${x + extra} altogether. What is x?`, expression: `x + ${extra} = ${x + extra}`, answer: x, unit: 'bottles', hint: `Subtract the ${extra} loose bottles from the total.` };
+    }
+    if (level.id === 'challenge') {
+      const x = 12 + n % 13, multiplier = 3 + n % 4;
+      return { ...context, title: 'Restore a lost formula', story: 'Pip needs the missing number from a more complicated recipe.', prompt: `Each of ${multiplier} crates holds x blue bottles and ${extra} green bottles. There are ${multiplier * (x + extra)} bottles in all. How many blue bottles are in each crate?`, expression: `${multiplier}(x + ${extra}) = ${multiplier * (x + extra)}`, answer: x, unit: 'blue bottles per crate', hint: `Divide the total equally among ${multiplier} crates. Then subtract the ${extra} green bottles in one crate.` };
+    }
+    const x = 8 + n % 12, multiplier = 2 + n % 3;
+    return { ...context, title: 'Restore a lost formula', story: 'Pip spilled moonwater on a page of the recipe book. One number is missing.', prompt: `The missing number is x. ${multiplier} identical bundles plus ${extra} loose bottles make ${multiplier * x + extra} bottles. What is x?`, expression: `${multiplier}x + ${extra} = ${multiplier * x + extra}`, answer: x, unit: 'bottles per bundle', hint: `Subtract the ${extra} loose bottles, then divide what is left into ${multiplier} equal bundles.` };
   }
-  const width = 3 + n % 5, height = 2 + Math.floor(n / 2) % 4, depth = 2 + n % 2;
-  const dimensions = { width, height, depth: variant === 2 ? depth : 1 };
-  if (variant === 1) return { id, skill, dimensions, title: 'A fence for the herb garden', story: 'Fern is making a safe little garden for the mint.', prompt: `The rectangular herb bed is ${width} m long and ${height} m wide. How many meters of fencing go all the way around it?`, expression: `Perimeter of a ${width} m × ${height} m rectangle`, answer: 2 * (width + height), unit: 'meters', hint: 'Add all four sides. A rectangle has two long sides and two short sides.' };
-  if (variant === 2) return { id, skill, dimensions, title: 'Fill the enchanted planter', story: 'Fern needs soil for a new rectangular planter.', prompt: `The planter is ${width} m long, ${height} m wide, and ${depth} m deep. What volume of soil fills it?`, expression: `${width} m × ${height} m × ${depth} m`, answer: width * height * depth, unit: 'cubic meters', hint: 'Find the area of the base, then multiply by the number of one-meter layers.' };
-  return { id, skill, dimensions, title: 'Plan an herb bed', story: 'Fern is finding room to grow more potion ingredients.', prompt: `The rectangular garden is ${width} m long and ${height} m wide. What is its area?`, expression: `Area of a ${width} m × ${height} m rectangle`, answer: width * height, unit: 'square meters', hint: 'Count how many one-square-meter spaces fit in each row, then multiply by the number of rows.' };
+  const width = level.id === 'easy' ? 2 + n % 4 : level.id === 'challenge' ? 6 + n % 7 : 3 + n % 5;
+  const height = level.id === 'easy' ? 2 + Math.floor(n / 2) % 3 : level.id === 'challenge' ? 4 + Math.floor(n / 2) % 5 : 2 + Math.floor(n / 2) % 4;
+  const depth = level.id === 'challenge' ? 3 + n % 3 : 2 + n % 2;
+  const volume = variant === 2 && level.id !== 'easy';
+  const dimensions = { width, height, depth: volume ? depth : 1 };
+  if (variant === 1) return { ...context, dimensions, title: 'A fence for the herb garden', story: 'Fern is making a safe little garden for the mint.', prompt: `The rectangular herb bed is ${width} m long and ${height} m wide. How many meters of fencing go all the way around it?`, expression: `Perimeter of a ${width} m × ${height} m rectangle`, answer: 2 * (width + height), unit: 'meters', hint: 'Add all four sides. A rectangle has two long sides and two short sides.' };
+  if (volume) return { ...context, dimensions, title: 'Fill the enchanted planter', story: 'Fern needs soil for a new rectangular planter.', prompt: `The planter is ${width} m long, ${height} m wide, and ${depth} m deep. What volume of soil fills it?`, expression: `${width} m × ${height} m × ${depth} m`, answer: width * height * depth, unit: 'cubic meters', hint: 'Find the area of the base, then multiply by the number of one-meter layers.' };
+  return { ...context, dimensions, title: 'Plan an herb bed', story: 'Fern is finding room to grow more potion ingredients.', prompt: `The rectangular garden is ${width} m long and ${height} m wide. What is its area?`, expression: `Area of a ${width} m × ${height} m rectangle`, answer: width * height, unit: 'square meters', hint: 'Count the square-meter spaces in each row, then multiply by the number of rows.' };
 }
 export function completeSupplyTask(save, skill, taskId, answer) {
   if (!SUPPLY_SKILLS.includes(skill)) return { save, correct: false };
   const task = currentSupplyTask(save, skill);
   if (task.id !== taskId || parseCups(answer, 10000) !== task.answer * CUP) return { save, correct: false };
-  const stock = copyStock(save.stock);
-  for (const ingredient of INGREDIENTS) for (const units of [5, 6, 10, 12, 15, 20]) addStock(stock, ingredient.id, units, 2);
-  return { save: { ...save, stock, supplyCompleted: save.supplyCompleted + 1 }, correct: true, portions: 48 };
+  const earned = task.reward;
+  return { save: { ...save, coins: save.coins + earned, supplyCompleted: save.supplyCompleted + 1 }, correct: true, earned };
 }

@@ -54,3 +54,47 @@ Inspected the three generated images for style, subjects, layout, and absence of
 
 For future art, use these source images as visual references and keep the same warm gouache style, palette, silhouette clarity, and transparent asset separation. Preserve existing assets or create versioned replacements when trying a new direction.
 
+## Cozy corner expansion
+
+The new cozy corner starts as a separate bare room. Its furniture is layered by application code, so earning an item visibly changes the room without changing the original potion-shop background.
+
+| File in public/art | Purpose |
+| --- | --- |
+| cozy-corner.webp | Empty cottage nook, 1536 × 1024 |
+| decor-plant.webp | Potted leafy fern |
+| decor-rug.webp | Round woven plum rug |
+| decor-bed.webp | Lavender pet bed |
+| decor-bookshelf.webp | Short bookcase |
+| decor-lantern.webp | Glowing brass/firefly lantern |
+| decor-potion-shelf.webp | Wall shelf and three potion bottles |
+| decor-tea-table.webp | Tea table, teapot, and cup |
+| decor-painting.webp | Framed moonlit landscape |
+| decor-herbs.webp | Hanging herb bundles |
+
+All ten assets were generated with the built-in image-generation tool. The existing shop.webp was supplied as a visual style reference only and remains unchanged. Both generations are new images, not edits of the original shop.
+
+Original PNGs are retained locally under ignored art-source/cozy-corner.png and art-source/cozy-furnishings.png. Run `node scripts/prepare-cozy-art.mjs` with cwebp and dwebp installed to reproduce all outputs. Use `--sprites-only` to rebuild furniture without touching the room background.
+
+The generated objects extend slightly beyond a few nominal grid boundaries, so preparation finds the nine main connected alpha components in the original sheet rather than blindly cropping cells. It uses alpha 3 or greater to locate each object, retains an eight-source-pixel allowance for soft glow and fine antialiased leaves, and preserves the original alpha within that crop. Each sprite is scaled without changing its aspect ratio, then receives a consistent 12-pixel transparent border. Its maximum dimension is 480 pixels. This removes excess asymmetric cell margins and prevents neighboring objects from bleeding into a sprite. Resizing uses a lossless intermediate; the final WebPs use quality 90 and alpha quality 100. The room background uses quality 88.
+
+Final sprite sizes are fern 480 × 430, rug 480 × 278, bed 480 × 353, bookcase 460 × 480, lantern 297 × 480, potion shelf 480 × 300, tea table 480 × 458, painting 480 × 433, and herbs 480 × 401.
+
+The room's wall/floor seam is around 69% of the image height. The arched window is centered around 71% width, spanning approximately 60–85% width and 11–55% height. The left wall and foreground floor intentionally remain empty for furniture layers. The furniture has been trimmed and centered for predictable room-layer positioning; its 12-pixel border remains fully transparent.
+
+### Exact room prompt
+
+Use case: illustration-story. Asset type: background for the decoratable cozy corner in a children's potion-shop game. Input image 1 is a visual STYLE REFERENCE ONLY, not an edit target. Create a new mostly empty magical cottage nook in the same warm hand-painted gouache storybook style, palette, texture, soft rounded forms and frontal stage-like perspective. Warm cream plaster walls, wooden beams and wood floor, soft sunset sunlight, one arched window on the back wall around 60 percent across the frame. The lower 40 percent of the image is an empty wooden floor for separately placed furniture and a pet. The walls are largely bare and leave room for separately placed shelves and pictures. Landscape 3:2 composition, room fills image edge to edge. This is a new bare room to furnish, not the busy potion shop. No furniture, no shelves, no rug, no plants or vines, no hanging herbs, no creatures or people, no bottles, no books, no lights or lanterns, no curtains, no lettering, no symbols resembling text, no logos or watermark. Preserve the inviting cozy warm gouache art direction of the reference.
+
+Tool options: referenced_image_paths=[public/art/shop.webp], transparent_background=false.
+
+### Exact furnishing-sheet prompt
+
+Use case: illustration-story. Asset type: transparent game furniture sprite sheet. Input image 1 is a visual STYLE REFERENCE ONLY, not an edit target. Generate exactly nine distinct full objects in a precise 3 by 3 grid of nine equal square cells on an ACTUALLY TRANSPARENT background. Match the warm gouache storybook painting, cream/dusty-plum/sage/amber-wood colors, rounded carefully drawn forms of the reference. Top row left to right: (1) a potted leafy fern in a warm terracotta pot, (2) a round woven dusty-plum rug viewed from a slight frontal angle, (3) a cozy lavender pet cushion/bed. Middle row left to right: (4) a short wooden bookcase containing a few books, (5) a warm glowing brass lantern with little firefly lights inside, (6) a wooden wall shelf with three jewel-colored potion bottles. Bottom row left to right: (7) a small wooden tea table with a teapot and cup, (8) a framed moonlit landscape painting, (9) a hanging bundle of herbs on twine. Each object must be centered in its own equal cell, fully visible and wholly contained in the middle 65 percent of that cell, with generous transparent gutters at all cell boundaries. No object crosses any grid boundary. Full silhouettes, no cropping, same gentle frontal game perspective. Only the listed objects, no extra props. No characters, no labels, no numbers, no text or lettering, no scene background, no ground planes, no cell borders or grid lines, no watermark. Genuine transparent alpha, not a checkerboard.
+
+Tool options: referenced_image_paths=[public/art/shop.webp], transparent_background=true.
+
+### Cozy art inspection
+
+Inspected both generated images, optimized room, and representative furniture crops for consistent style, complete silhouettes, lack of text, and correct object placement within grid cells. Confirmed sprite WebPs retain alpha. Rendered temporary cream-background composites of the fern, tea table, trimmed bookcase, and trimmed lantern to verify clean edges and preserved detail. The trimmed lantern no longer contains a sliver of its neighboring shelf; the bed and shelf are extracted fully even where they crossed nominal cell edges. Checked that every final sprite has alpha and a completely transparent outer 12-pixel border. The room is empty except for its window and architectural beams. Preparation script syntax check passed. Temporary composites were removed after inspection.
+
+

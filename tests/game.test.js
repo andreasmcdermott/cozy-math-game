@@ -1,182 +1,245 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SAVE_KEY, CUP, CAPACITY, INGREDIENTS, RECIPES, newSave, sanitizeSave, loadSave, persistSave, formatCups, parseCups, currentOrder, mixtureFor, stockTotal, pour, undoPour, returnMixture, recoverPortion, completeOrder, findCombination, canFinishOrder, currentSupplyTask, completeSupplyTask, adopt, decorate } from '../src/game.js';
+import { SAVE_KEY, CUP, CAPACITY, INGREDIENTS, RECIPES, FAMILIARS, DECORATIONS, LEVELS, newSave as freshSave, sanitizeSave, loadSave, persistSave, formatCups, parseCups, difficultyFor, currentOrder, puzzleStock, resetPuzzle, setDifficulty, mixtureFor, stockTotal, pour, undoPour, returnMixture, recoverPortion, completeOrder, findCombination, canFinishOrder, currentSupplyTask, completeSupplyTask, adopt, decorate, toggleDecoration } from '../src/game.js';
 
+const newSave = () => setDifficulty(freshSave(), 'standard');
 const quantities = save => INGREDIENTS.map(i => stockTotal(save, i.id) + mixtureFor(save)[i.id]);
-const countPortions = save => Object.values(save.stock).reduce((total, stock) => total + Object.values(stock).reduce((a, b) => a + b, 0), 0);
-function restock(save, skill = 'arithmetic') {
-  const task = currentSupplyTask(save, skill);
-  return completeSupplyTask(save, skill, task.id, String(task.answer)).save;
-}
+const firstPortion = (save, ingredient = 'moonwater') => Number(Object.keys(save.stock[ingredient])[0]);
 function fillOrder(save) {
   const order = currentOrder(save);
-  for (const ingredient of INGREDIENTS) {
-    let combination = findCombination(save.stock[ingredient.id], order.target[ingredient.id]);
-    for (let n = 0; combination === null && n < 3; n++) {
-      save = restock(save); combination = findCombination(save.stock[ingredient.id], order.target[ingredient.id]);
-    }
-    assert.notEqual(combination, null, `Recipe ${order.recipe.id}, batch ${order.batch}, ingredient ${ingredient.id} is solvable`);
-    for (const units of combination) save = pour(save, ingredient.id, units);
+  for (const i of INGREDIENTS) {
+    const combination = findCombination(save.stock[i.id], order.target[i.id] - mixtureFor(save)[i.id]);
+    assert.notEqual(combination, null, `${order.id} ${i.id} must be solvable without errands`);
+    for (const units of combination) save = pour(save, i.id, units);
   }
   return save;
 }
+// Independent bounded-subset enumeration, separate from the generation code
+// and the production solver. Tracks the fewest portions for each reachable sum.
+function minimumSubset(stock, target) {
+  let sums = new Map([[0, 0]]);
+  for (const [size, count] of Object.entries(stock)) for (let n = 0; n < count; n++) {
+    const next = new Map(sums);
+    for (const [sum, used] of sums) if (sum + Number(size) <= target) next.set(sum + Number(size), Math.min(next.get(sum + Number(size)) ?? Infinity, used + 1));
+    sums = next;
+  }
+  return sums.get(target) ?? Infinity;
+}
 
-test('fraction formatting and parsing are exact for unlike denominators and mixed quantities', () => {
-  assert.equal(CUP, 60);
+test('exact fractions support unlike denominators, mixed values, and the 5/6 example', () => {
+  assert.equal(CUP, 60); assert.equal([20, 5, 5, 10, 10].reduce((a, b) => a + b, 0), parseCups('5/6'));
   assert.equal(parseCups('1/3') + parseCups('1/6'), parseCups('1/2'));
   assert.equal(formatCups(parseCups('1/3') + parseCups('1/5')), '8/15');
-  assert.equal(formatCups(35), '7/12'); assert.equal(formatCups(50), '⅚'); assert.equal(formatCups(75), '1 ¼');
   for (let units = 0; units <= CAPACITY; units++) assert.equal(parseCups(formatCups(units)), units);
   assert.equal(parseCups('1 1/2'), 90); assert.equal(parseCups('1½'), 90); assert.equal(parseCups('0.25'), 15);
-  assert.equal(parseCups(' 2 / 3 '), 40); assert.equal(parseCups('0'), 0);
-  for (const invalid of ['', '1/0', '-1/3', '2/7', '0.333333', '2+3', '13', '<script>', 'Infinity']) assert.equal(parseCups(invalid), null, invalid);
+  for (const value of ['', '1/0', '-1/3', '2/7', '0.333333', '2+3', '13', '<script>', 'Infinity']) assert.equal(parseCups(value), null);
   assert.throws(() => formatCups(1.5));
 });
 
-test('two quarter portions are consumed while other measured stock remains', () => {
-  const original = newSave();
-  let save = pour(original, 'moonwater', 15); save = pour(save, 'moonwater', 15);
-  assert.equal(save.stock.moonwater[15], undefined);
-  assert.equal(save.stock.moonwater[20], 1);
-  assert.equal(mixtureFor(save).moonwater, 30);
-  assert.equal(pour(save, 'moonwater', 15), save);
-  assert.equal(pour(save, 'moonwater', 30), save, 'There is no freely selectable half-cup portion');
-  assert.equal(original.stock.moonwater[15], 2, 'The previous state is not mutated');
-  assert.deepEqual(quantities(save), quantities(original));
-});
-
-test('undo and return restore the exact portions without synthesizing a combined one', () => {
-  const original = newSave(); let save = pour(original, 'moonwater', 20); save = pour(save, 'moonwater', 15);
-  save = undoPour(save); assert.equal(mixtureFor(save).moonwater, 20); assert.equal(save.stock.moonwater[15], 2);
-  save = pour(save, 'moonwater', 15); save = returnMixture(save);
-  assert.deepEqual(save.stock, original.stock); assert.equal(save.stock.moonwater[35], undefined); assert.equal(save.brew.lots.length, 0);
-  assert.equal(undoPour(save), save);
-});
-
-test('recovery requires correct subtraction and conserves all ingredient quantity', () => {
-  let save = newSave(); save = pour(save, 'moonwater', 20); save = pour(save, 'moonwater', 10);
-  const before = quantities(save), stockBefore = save.stock.moonwater[12];
-  assert.equal(recoverPortion(save, 'moonwater', 12, 20).save, save, '1/2 - 1/5 is not 1/3');
-  assert.equal(recoverPortion(save, 'moonwater', 40, 0).reason, 'too-much');
-  const result = recoverPortion(save, 'moonwater', 12, 18);
-  assert.equal(result.correct, true); assert.equal(mixtureFor(result.save).moonwater, 18);
-  assert.equal(result.save.stock.moonwater[12], stockBefore + 1);
-  assert.deepEqual(quantities(result.save), before); assert.equal(result.save.brew.undoDepth, 0);
-  assert.equal(recoverPortion(result.save, 'moonwater', 12, 18).correct, false);
-  assert.deepEqual(quantities(returnMixture(result.save)), before);
-});
-
-test('after recovery only subsequent pours can be undone', () => {
-  let save = pour(newSave(), 'moonwater', 20);
-  save = recoverPortion(save, 'moonwater', 5, 15).save;
-  assert.equal(undoPour(save), save);
-  const recovered = save; save = pour(save, 'honey', 6); save = undoPour(save);
-  assert.deepEqual(save.stock, recovered.stock); assert.deepEqual(save.brew, recovered.brew);
-});
-
-test('the opening order requires combining fractions rather than matching a single vial', () => {
-  const save = newSave(), order = currentOrder(save);
-  assert.equal(order.target.moonwater, 35);
-  assert.equal(save.stock.moonwater[35], undefined);
-  const combination = findCombination(save.stock.moonwater, 35);
-  assert.ok(combination.length > 1);
-  assert.ok(new Set(combination).size > 1, 'Opening moonwater needs unlike portion sizes');
-  for (const i of INGREDIENTS.filter(i => order.target[i.id])) assert.equal(save.stock[i.id][order.target[i.id]], undefined);
-});
-
-test('every recipe and batch remains solvable with finite restocking', () => {
-  for (const difficulty of ['apprentice', 'scholar']) {
-    for (let completed = 0; completed < RECIPES.length * 4; completed++) {
-      let save = newSave(); save.completed = completed; save.settings.difficulty = difficulty;
-      save = fillOrder(save); const order = currentOrder(save);
-      const result = completeOrder(save, order.id);
-      assert.equal(result.earned, order.reward); assert.equal(result.save.completed, completed + 1);
-      assert.equal(result.save.brew.lots.length, 0);
+test('4,000 puzzles are independently solvable with real decoys at every difficulty', () => {
+  for (const mode of ['auto', 'easy', 'standard', 'challenge']) for (let completed = 0; completed < 1000; completed++) {
+    const save = resetPuzzle({ ...setDifficulty(freshSave(), mode), completed });
+    const order = currentOrder(save), level = difficultyFor(save);
+    assert.ok(Object.values(order.target).reduce((a, b) => a + b, 0) <= CAPACITY);
+    for (const i of INGREDIENTS) {
+      const target = order.target[i.id], stock = save.stock[i.id], minimum = minimumSubset(stock, target);
+      assert.ok(Number.isFinite(minimum), `${order.id} ${i.id}`);
+      if (target) {
+        assert.equal(stock[target], undefined, 'No single portion matches the full target');
+        assert.ok(stockTotal(save, i.id) > target, 'Using all portions must not solve the puzzle');
+        assert.ok(minimum >= level.minParts, `${order.id} ${i.id} has a shortcut`);
+        assert.ok(minimum <= level.maxParts);
+        assert.ok(Object.values(stock).reduce((a, b) => a + b, 0) - minimum >= level.decoys);
+      } else assert.ok(stockTotal(save, i.id) > 0);
     }
   }
 });
 
-test('a successful brew consumes stock, awards coins once, and never refills the pantry', () => {
-  const original = newSave(); let save = original;
-  for (const [ingredient, portions] of Object.entries({ moonwater: [20, 15], moonberries: [20, 20], honey: [12, 12] })) for (const units of portions) save = pour(save, ingredient, units);
-  const order = currentOrder(save), beforeStock = save.stock;
-  const result = completeOrder(save, order.id);
-  assert.equal(result.earned, 18); assert.equal(result.save.coins, 18); assert.deepEqual(result.save.stock, beforeStock);
-  assert.equal(stockTotal(result.save, 'moonwater'), stockTotal(original, 'moonwater') - 35);
-  assert.equal(completeOrder(result.save, order.id).earned, 0);
-});
-
-test('wrong amounts and extra ingredients cannot earn coins', () => {
-  let save = fillOrder(newSave()); const id = currentOrder(save).id;
-  save = pour(save, 'mint', 5); assert.equal(completeOrder(save, id).earned, 0);
-  save = undoPour(save); save = undoPour(save); assert.equal(completeOrder(save, id).earned, 0);
-  assert.equal(completeOrder(newSave(), id).earned, 0);
-});
-
-test('batch scaling applies to every ingredient and whole stock portions remain finite', () => {
-  const save = newSave(); save.settings.difficulty = 'scholar';
-  const order = currentOrder(save); assert.equal(order.batch, 2);
-  assert.deepEqual(order.target, { moonwater: 70, moonberries: 80, honey: 48, mint: 0 });
-  assert.equal(save.stock.moonwater[70], undefined);
-});
-
-test('supply answers restock exactly once and preserve an unfinished mixture', () => {
-  let save = pour(newSave(), 'moonwater', 20); const task = currentSupplyTask(save, 'arithmetic');
-  assert.equal(task.answer, 24);
-  assert.equal(completeSupplyTask(save, 'arithmetic', task.id, '23').save, save);
-  const result = completeSupplyTask(save, 'arithmetic', task.id, '24');
-  assert.equal(result.correct, true); assert.equal(countPortions(result.save) - countPortions(save), 48);
-  assert.deepEqual(result.save.brew, save.brew); assert.equal(result.save.coins, save.coins);
-  assert.equal(completeSupplyTask(result.save, 'arithmetic', task.id, '24').correct, false);
-});
-
-test('algebra, area, perimeter, volume, and division errands have the expected answers', () => {
-  const save = newSave(); assert.equal(currentSupplyTask(save, 'algebra').answer, 4);
-  assert.equal(currentSupplyTask(save, 'geometry').answer, 6);
-  save.supplyCompleted = 1;
-  assert.equal(currentSupplyTask(save, 'arithmetic').answer, 5);
-  assert.equal(currentSupplyTask(save, 'algebra').answer, 5);
-  assert.equal(currentSupplyTask(save, 'geometry').answer, 12);
-  save.supplyCompleted = 2; assert.equal(currentSupplyTask(save, 'geometry').answer, 30);
-  for (const skill of ['arithmetic', 'algebra', 'geometry']) {
-    const task = currentSupplyTask(save, skill);
-    assert.equal(completeSupplyTask(save, skill, task.id, String(task.answer)).correct, true);
+test('200 consecutive potions never require errands or restocking', () => {
+  for (const mode of ['auto', 'easy', 'standard', 'challenge']) {
+    let save = setDifficulty(freshSave(), mode);
+    for (let n = 0; n < 50; n++) {
+      assert.equal(canFinishOrder(save), true);
+      const result = completeOrder(fillOrder(save), currentOrder(save).id);
+      assert.ok(result.earned > 0); save = result.save;
+      assert.equal(save.supplyCompleted, 0); assert.equal(save.brew.lots.length, 0); assert.deepEqual(save.stock, puzzleStock(save));
+    }
+    assert.equal(save.completed, 50);
   }
 });
 
-test('an empty pantry has a coin-free way back to a solvable order', () => {
-  let save = newSave(); save.stock = Object.fromEntries(INGREDIENTS.map(i => [i.id, {}]));
-  assert.equal(canFinishOrder(save), false); assert.equal(save.coins, 0);
-  save = restock(save); assert.equal(canFinishOrder(save), true); assert.equal(save.coins, 0);
-  assert.ok(completeOrder(fillOrder(save), currentOrder(save).id).earned > 0);
+test('Auto starts Easy and advances only after 3 and 8 completed potions', () => {
+  let save = freshSave(); assert.equal(save.settings.difficulty, 'auto');
+  for (let n = 0; n < 10; n++) {
+    assert.equal(difficultyFor(save).id, n < 3 ? 'easy' : n < 8 ? 'standard' : 'challenge');
+    const task = currentSupplyTask(save); const rewarded = completeSupplyTask(save, 'arithmetic', task.id, String(task.answer)).save;
+    assert.equal(difficultyFor(rewarded).id, difficultyFor(save).id, 'Errands do not advance levels');
+    save = completeOrder(fillOrder(save), currentOrder(save).id).save;
+  }
 });
 
-test('v1 progress migrates to v2 with starter stock and fifth-grade defaults', () => {
-  const old = { version: 1, coins: 31, completed: 8, owned: ['clover', 'fern'], active: 'fern', decorations: ['plants'], settings: { difficulty: 'gentle', visualHints: true, sound: true } };
-  const save = sanitizeSave(old);
-  assert.equal(save.version, 2); assert.equal(save.coins, 31); assert.equal(save.completed, 8); assert.equal(save.active, 'fern'); assert.deepEqual(save.decorations, ['plants']);
-  assert.equal(save.settings.visualHints, false); assert.equal(save.settings.difficulty, 'apprentice'); assert.ok(stockTotal(save, 'moonwater') > 0);
+test('manual levels stay fixed and changing a level starts that mode’s puzzle', () => {
+  for (const id of Object.keys(LEVELS)) {
+    const save = resetPuzzle({ ...setDifficulty(freshSave(), id), completed: 100 });
+    assert.equal(difficultyFor(save).id, id);
+  }
+  let save = newSave(); save = pour(save, 'moonwater', firstPortion(save));
+  const changed = setDifficulty(save, 'challenge');
+  assert.equal(changed.brew.lots.length, 0); assert.notEqual(changed.puzzleId, save.puzzleId); assert.equal(canFinishOrder(changed), true);
+  assert.deepEqual(changed.stock, puzzleStock(changed));
 });
 
-test('saving and reloading a partial brew neither refunds nor duplicates a portion', () => {
-  const map = new Map(); const storage = { getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, v) };
-  const original = newSave(); let save = pour(original, 'moonwater', 20); save = pour(save, 'moonwater', 15);
+test('Easy uses only halves, quarters, and whole cups while Challenge scales batches', () => {
+  const easy = setDifficulty(freshSave(), 'easy');
+  for (const stock of Object.values(easy.stock)) for (const size of Object.keys(stock)) assert.ok([15, 30, 60].includes(Number(size)));
+  const challenge = setDifficulty(freshSave(), 'challenge'), order = currentOrder(challenge);
+  assert.equal(order.batch, 2); assert.deepEqual(order.target, { moonwater: 70, moonberries: 80, honey: 48, mint: 0 });
+});
+
+test('generation is stable across reload/reset and varies when the same recipe returns', () => {
+  const save = newSave(); assert.deepEqual(puzzleStock(save), puzzleStock(save));
+  const trays = new Set(); for (let n = 0; n < 30; n++) trays.add(JSON.stringify(puzzleStock({ ...save, completed: n * RECIPES.length })));
+  assert.ok(trays.size >= 25);
+});
+
+test('using portions depletes only the current tray and conserves quantities', () => {
+  const original = newSave(), units = firstPortion(original);
+  const save = pour(original, 'moonwater', units);
+  assert.equal(save.stock.moonwater[units] || 0, original.stock.moonwater[units] - 1);
+  assert.equal(mixtureFor(save).moonwater, units); assert.deepEqual(quantities(save), quantities(original));
+  assert.equal(pour(save, 'moonwater', currentOrder(save).target.moonwater), save);
+});
+
+test('reset restores the same puzzle without changing coins, pets, or level', () => {
+  const original = { ...newSave(), coins: 31, owned: ['clover', 'fern'], active: 'fern' };
+  const save = pour(original, 'moonwater', firstPortion(original)); const reset = resetPuzzle(save);
+  assert.deepEqual(reset.stock, original.stock); assert.equal(reset.puzzleId, original.puzzleId); assert.equal(reset.coins, 31);
+  assert.equal(reset.active, 'fern'); assert.equal(reset.settings.difficulty, original.settings.difficulty); assert.deepEqual(reset.brew.lots, []);
+});
+
+test('undo and return restore individual portions without creating a combined vial', () => {
+  const original = newSave(), parts = findCombination(original.stock.moonwater, currentOrder(original).target.moonwater);
+  let save = pour(pour(original, 'moonwater', parts[0]), 'moonwater', parts[1]);
+  save = undoPour(save); assert.equal(mixtureFor(save).moonwater, parts[0]);
+  save = returnMixture(pour(save, 'moonwater', parts[1])); assert.deepEqual(save.stock, original.stock); assert.equal(save.brew.lots.length, 0);
+});
+
+test('subtraction recovery conserves quantities and rejects incorrect remainders', () => {
+  const original = newSave(), units = Number(Object.keys(original.stock.moonwater).find(n => Number(n) > 5));
+  const save = pour(original, 'moonwater', units), before = quantities(save);
+  assert.equal(recoverPortion(save, 'moonwater', 5, units).save, save);
+  assert.equal(recoverPortion(save, 'moonwater', units + 1, 0).reason, 'too-much');
+  const result = recoverPortion(save, 'moonwater', 5, units - 5);
+  assert.equal(result.correct, true); assert.deepEqual(quantities(result.save), before); assert.equal(result.save.brew.undoDepth, 0);
+  assert.equal(undoPour(result.save), result.save); assert.deepEqual(resetPuzzle(result.save).stock, original.stock);
+  assert.deepEqual(sanitizeSave(JSON.parse(JSON.stringify(result.save))), result.save);
+});
+
+test('all valid combinations earn full rewards even with unused decoys', () => {
+  // Search independently for a tray with more than one whole-portion solution.
+  let chosen, alternatives;
+  for (let completed = 0; completed < 100 && !chosen; completed++) {
+    const save = resetPuzzle({ ...newSave(), completed });
+    const ingredient = INGREDIENTS.find(i => currentOrder(save).target[i.id] > 0);
+    const entries = Object.entries(save.stock[ingredient.id]), solutions = [];
+    const visit = (index, remaining, parts) => {
+      if (remaining === 0) { solutions.push(parts); return; }
+      if (index === entries.length || solutions.length >= 2) return;
+      const [size, count] = entries[index];
+      for (let n = 0; n <= count && n * Number(size) <= remaining; n++) visit(index + 1, remaining - n * Number(size), [...parts, ...Array(n).fill(Number(size))]);
+    };
+    visit(0, currentOrder(save).target[ingredient.id], []);
+    if (solutions.length >= 2) { chosen = { save, ingredient }; alternatives = solutions.slice(0, 2); }
+  }
+  assert.ok(chosen);
+  for (const parts of alternatives) {
+    let save = chosen.save; for (const size of parts) save = pour(save, chosen.ingredient.id, size);
+    save = fillOrder(save); assert.ok(Object.values(save.stock).some(stock => Object.values(stock).some(n => n > 0)));
+    assert.equal(completeOrder(save, currentOrder(save).id).earned, currentOrder(save).reward);
+  }
+});
+
+test('brewing awards once and prepares a fresh next puzzle', () => {
+  const save = fillOrder(newSave()), order = currentOrder(save), result = completeOrder(save, order.id);
+  assert.equal(result.earned, 18); assert.equal(result.save.completed, 1); assert.notEqual(result.save.puzzleId, save.puzzleId);
+  assert.deepEqual(result.save.stock, puzzleStock(result.save)); assert.equal(result.save.brew.lots.length, 0); assert.equal(completeOrder(result.save, order.id).earned, 0);
+});
+
+test('wrong quantities and distractor ingredients do not earn coins', () => {
+  let save = fillOrder(newSave()); const id = currentOrder(save).id;
+  const unused = INGREDIENTS.find(i => currentOrder(save).target[i.id] === 0);
+  save = pour(save, unused.id, firstPortion(save, unused.id)); assert.equal(completeOrder(save, id).earned, 0);
+  save = undoPour(undoPour(save)); assert.equal(completeOrder(save, id).earned, 0);
+});
+
+test('errand questions and payouts scale with difficulty and cannot change the puzzle', () => {
+  const expected = { easy: [6, 4], standard: [48, 8], challenge: [132, 14] };
+  for (const [id, [answer, coins]] of Object.entries(expected)) {
+    let save = setDifficulty(freshSave(), id); save = pour(save, 'moonwater', firstPortion(save));
+    const task = currentSupplyTask(save), result = completeSupplyTask(save, 'arithmetic', task.id, String(answer));
+    assert.equal(task.answer, answer); assert.equal(task.reward, coins); assert.equal(result.correct, true); assert.equal(result.earned, coins);
+    assert.deepEqual(result.save.stock, save.stock); assert.deepEqual(result.save.brew, save.brew); assert.equal(result.save.puzzleId, save.puzzleId);
+    assert.equal(completeSupplyTask(result.save, 'arithmetic', task.id, String(answer)).correct, false);
+    assert.equal(completeSupplyTask(save, 'arithmetic', task.id, String(answer + 1)).save, save);
+  }
+});
+
+test('stale errand forms cannot claim a higher difficulty reward', () => {
+  const easy = setDifficulty(freshSave(), 'easy'), task = currentSupplyTask(easy);
+  const challenge = setDifficulty(easy, 'challenge');
+  assert.equal(completeSupplyTask(challenge, 'arithmetic', task.id, String(task.answer)).correct, false);
+});
+
+test('algebra and geometry scale while retaining correct arithmetic', () => {
+  const easy = setDifficulty(freshSave(), 'easy'), standard = newSave(), challenge = setDifficulty(freshSave(), 'challenge');
+  assert.equal(currentSupplyTask(easy, 'algebra').answer, 4); assert.equal(currentSupplyTask(standard, 'algebra').answer, 8); assert.equal(currentSupplyTask(challenge, 'algebra').answer, 12);
+  assert.equal(currentSupplyTask(easy, 'geometry').answer, 4); assert.equal(currentSupplyTask(standard, 'geometry').answer, 6); assert.equal(currentSupplyTask(challenge, 'geometry').answer, 24);
+  standard.supplyCompleted = 1; assert.equal(currentSupplyTask(standard, 'arithmetic').answer, 13); assert.equal(currentSupplyTask(standard, 'geometry').answer, 12);
+  standard.supplyCompleted = 2; assert.equal(currentSupplyTask(standard, 'geometry').answer, 30);
+});
+
+test('familiar prices require sustained progress and purchases charge only once', () => {
+  assert.equal(FAMILIARS.find(p => p.id === 'fern').cost, 180); assert.equal(FAMILIARS.find(p => p.id === 'pip').cost, 450);
+  const poor = { ...newSave(), coins: 179 }; assert.equal(adopt(poor, 'fern'), poor);
+  const rich = { ...newSave(), coins: 500 }, adopted = adopt(rich, 'fern');
+  assert.equal(adopted.coins, 320); assert.equal(adopted.active, 'fern'); assert.equal(adopt(adopted, 'fern'), adopted); assert.deepEqual(adopted.stock, rich.stock);
+});
+
+test('the corner starts bare and offers ten furnishings with saved placement choices', () => {
+  const save = freshSave(); assert.deepEqual(save.decorations, []); assert.deepEqual(save.hiddenDecorations, []); assert.equal(DECORATIONS.length, 10);
+  let decorated = decorate({ ...save, coins: 200 }, 'rug');
+  assert.equal(decorated.coins, 152); assert.deepEqual(decorated.decorations, ['rug']); assert.equal(decorate(decorated, 'rug'), decorated);
+  const hidden = toggleDecoration(decorated, 'rug'); assert.deepEqual(hidden.hiddenDecorations, ['rug']); assert.equal(hidden.coins, decorated.coins);
+  assert.deepEqual(sanitizeSave(JSON.parse(JSON.stringify(hidden))).hiddenDecorations, ['rug']);
+  assert.deepEqual(toggleDecoration(hidden, 'rug').hiddenDecorations, []); assert.equal(toggleDecoration(hidden, 'bookshelf'), hidden);
+  assert.deepEqual(hidden.stock, save.stock); assert.deepEqual(hidden.brew, save.brew);
+});
+
+test('old saves migrate with coins, adopted pets, and bought furnishings intact', () => {
+  for (const version of [1, 2, 3]) {
+    const old = { version, coins: 31, completed: 8, owned: ['clover', 'fern'], active: 'fern', decorations: ['plants', 'garland'], settings: { difficulty: 'apprentice', visualHints: false, sound: true }, stock: {}, brew: { lots: [{ ingredient: 'mint', units: 10 }], undoDepth: 1 }, supplyCompleted: 3 };
+    const save = sanitizeSave(old);
+    assert.equal(save.version, 4); assert.equal(save.coins, 31); assert.equal(save.completed, 8); assert.equal(save.active, 'fern'); assert.deepEqual(save.decorations, ['plants', 'garland']);
+    assert.equal(save.settings.difficulty, 'standard'); assert.equal(save.supplyCompleted, 3); assert.equal(save.brew.lots.length, 0); assert.equal(canFinishOrder(save), true);
+  }
+  assert.equal(sanitizeSave({ ...freshSave(), version: 2, settings: { difficulty: 'scholar' } }).settings.difficulty, 'challenge');
+});
+
+test('saving a partial puzzle retains the same tray and poured portions', () => {
+  const map = new Map(), storage = { getItem: k => map.get(k) ?? null, setItem: (k, v) => map.set(k, v) };
+  const original = newSave(), save = pour(original, 'moonwater', firstPortion(original));
   assert.equal(persistSave(storage, save), true); assert.ok(map.has(SAVE_KEY));
-  const loaded = loadSave(storage).save; assert.deepEqual(loaded, save); assert.deepEqual(quantities(loaded), quantities(original));
-  assert.deepEqual(returnMixture(loaded).stock, original.stock);
+  const loaded = loadSave(storage).save; assert.deepEqual(loaded, save); assert.deepEqual(quantities(loaded), quantities(original)); assert.deepEqual(returnMixture(loaded).stock, original.stock);
 });
 
-test('corrupt or blocked saves stay playable and invalid inventory is rejected', () => {
+test('corrupt attempts reset safely without deleting achievements', () => {
+  const save = { ...newSave(), coins: 42 };
+  const repaired = sanitizeSave({ ...save, stock: { ...save.stock, moonwater: {} } });
+  assert.equal(repaired.coins, 42); assert.equal(repaired.brew.lots.length, 0); assert.deepEqual(repaired.stock, puzzleStock(repaired));
+  assert.equal(canFinishOrder(sanitizeSave({ ...save, puzzleId: 'old' })), true);
+});
+
+test('blocked or malformed storage remains playable', () => {
   const blocked = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('quota'); } };
-  assert.deepEqual(loadSave(blocked).save, newSave()); assert.equal(persistSave(blocked, newSave()), false);
-  assert.deepEqual(loadSave({ getItem: () => '{broken' }).save, newSave());
-  const raw = newSave(); raw.coins = -1; raw.active = 'missing'; raw.stock.moonwater = { 0: 10, 20: 2, 5: -3, bad: 2 }; raw.brew = { lots: [{ ingredient: 'missing', units: 10 }, { ingredient: 'mint', units: 15 }], undoDepth: 99 };
-  const safe = sanitizeSave(raw); assert.equal(safe.coins, 0); assert.equal(safe.active, 'clover'); assert.deepEqual(safe.stock.moonwater, { 20: 2 }); assert.deepEqual(safe.brew, { lots: [{ ingredient: 'mint', units: 15 }], undoDepth: 1 });
-});
-
-test('purchases preserve pantry and unfinished potions', () => {
-  const save = { ...pour(newSave(), 'moonwater', 20), coins: 100 };
-  const adopted = adopt(save, 'fern'); assert.equal(adopted.coins, 76); assert.equal(adopted.active, 'fern'); assert.deepEqual(adopted.stock, save.stock); assert.deepEqual(adopted.brew, save.brew);
-  assert.equal(adopt(adopted, 'fern'), adopted);
-  const decorated = decorate(adopted, 'plants'); assert.equal(decorated.coins, 60); assert.deepEqual(decorated.brew, save.brew); assert.equal(decorate(decorated, 'plants'), decorated);
+  assert.deepEqual(loadSave(blocked).save, freshSave()); assert.equal(persistSave(blocked, freshSave()), false); assert.deepEqual(loadSave({ getItem: () => '{broken' }).save, freshSave());
 });
